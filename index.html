@@ -11,15 +11,14 @@
   <div id="products"></div>
 
   <script type="module">
-    // === 1️⃣ Initialisation Supabase ===
     import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
-    const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co"; // <-- remplace ici
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU"; // <-- remplace ici
-
+    // === 1️⃣ Configuration Supabase ===
+    const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co"; // <-- remplace par ton URL
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."; // <-- remplace par ta clé Anon
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // === 2️⃣ Gestion de session visiteur (localStorage) ===
+    // === 2️⃣ Gestion session visiteur ===
     let sessionId = localStorage.getItem("session_id");
     if (!sessionId) {
       sessionId = crypto.randomUUID();
@@ -52,7 +51,22 @@
 
     const cart = await ensureCart();
 
-    // === 4️⃣ Afficher les produits disponibles ===
+    // === 4️⃣ Ajouter un produit au panier ===
+    async function addToCart(productId, price) {
+      const { error } = await supabase
+        .from("cart_items")
+        .insert([
+          { cart_id: cart.id, product_id: productId, unit_price: price, quantity: 1 },
+        ]);
+
+      if (error) {
+        alert("❌ Erreur ajout au panier : " + error.message);
+      } else {
+        alert("✅ Produit ajouté au panier !");
+      }
+    }
+
+    // === 5️⃣ Afficher les produits publiés ===
     async function showProducts() {
       const { data: products, error } = await supabase
         .from("products")
@@ -73,66 +87,59 @@
 
       container.innerHTML = `<h2>🧺 Produits disponibles</h2>`;
 
-     products.forEach((p) => {
-  const div = document.createElement("div");
-  div.style = "border:1px solid #ccc; padding:10px; margin:10px; border-radius:8px;";
+      products.forEach((p) => {
+        const div = document.createElement("div");
+        div.style = "border:1px solid #ccc; padding:10px; margin:10px; border-radius:8px;";
 
-  // Récupérer les images du produit
-  const imagesDiv = document.createElement("div");
-  imagesDiv.style = "margin-bottom:8px;";
+        // --- Images ---
+        const imagesDiv = document.createElement("div");
+        imagesDiv.style = "margin-bottom:8px;";
+        div.appendChild(imagesDiv);
 
-  supabase
-    .from("product_images")
-    .select("*")
-    .eq("product_id", p.id)
-    .then(({ data: imgs, error }) => {
-      if (!error && imgs.length > 0) {
-        imgs.forEach(img => {
-          const imgEl = document.createElement("img");
-          imgEl.src = `${SUPABASE_URL}/storage/v1/object/public/${img.path}`;
-          imgEl.style = "max-width:150px; margin-right:5px; border-radius:4px;";
-          imagesDiv.appendChild(imgEl);
+        supabase
+          .from("product_images")
+          .select("*")
+          .eq("product_id", p.id)
+          .then(({ data: imgs, error }) => {
+            if (!error && imgs.length > 0) {
+              imgs.forEach((img) => {
+                const imgEl = document.createElement("img");
+                imgEl.src = `${SUPABASE_URL}/storage/v1/object/public/${img.path}`;
+                imgEl.style = "max-width:150px; margin-right:5px; border-radius:4px;";
+                imagesDiv.appendChild(imgEl);
+              });
+            }
+          });
+
+        // --- Titre ---
+        const title = document.createElement("h3");
+        title.textContent = p.title;
+        div.appendChild(title);
+
+        // --- Description ---
+        const desc = document.createElement("p");
+        desc.textContent = p.description || "";
+        div.appendChild(desc);
+
+        // --- Prix ---
+        const price = document.createElement("p");
+        price.innerHTML = `<strong>${p.price} ${p.currency}</strong>`;
+        div.appendChild(price);
+
+        // --- Bouton ---
+        const btn = document.createElement("button");
+        btn.textContent = "Ajouter au panier";
+        btn.addEventListener("click", async () => {
+          await addToCart(p.id, p.price);
         });
-      }
-    });
-
-  div.appendChild(imagesDiv);
-
-  div.innerHTML += `
-    <h3>${p.title}</h3>
-    <p>${p.description || ""}</p>
-    <p><strong>${p.price} ${p.currency}</strong></p>
-    <button>Ajouter au panier</button>
-  `;
-
-  div.querySelector("button").addEventListener("click", async () => {
-    await addToCart(p.id, p.price);
-  });
-
-  container.appendChild(div);
-});
+        div.appendChild(btn);
 
         container.appendChild(div);
       });
     }
 
-    // === 5️⃣ Ajouter un produit au panier ===
-    async function addToCart(productId, price) {
-      const { error } = await supabase
-        .from("cart_items")
-        .insert([
-          { cart_id: cart.id, product_id: productId, unit_price: price, quantity: 1 },
-        ]);
-
-      if (error) {
-        alert("❌ Erreur ajout au panier : " + error.message);
-      } else {
-        alert("✅ Produit ajouté au panier !");
-      }
-    }
-
-    // === 6️⃣ Lancer l’affichage ===
     showProducts();
   </script>
 </body>
 </html>
+

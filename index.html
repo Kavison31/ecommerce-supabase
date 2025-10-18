@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-commerce Supabase</title>
+  </head>
+  <body>
+    <h1>🛍️ Bienvenue sur mon e-commerce</h1>
+    <p id="status">Connexion à Supabase...</p>
+
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+      const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
+      const SUPABASE_ANON_KEY = "YOUR-ANON-KEY";
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: {
+          headers: {
+            'x-session-id': localStorage.getItem('session_id') || crypto.randomUUID(),
+          },
+        },
+      });
+
+      let sessionId = localStorage.getItem("session_id");
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        localStorage.setItem("session_id", sessionId);
+      }
+
+      document.getElementById("status").textContent =
+        "Session visiteur : " + sessionId;
+
+      async function testInsertCart() {
+        const { data, error } = await supabase
+          .from("carts")
+          .insert([{ session_id: sessionId }])
+          .select();
+
+        if (error) {
+          document.body.innerHTML += `<p style="color:red;">❌ Erreur : ${error.message}</p>`;
+          console.error(error);
+        } else {
+          document.body.innerHTML += `<p style="color:green;">✅ Panier créé : ${JSON.stringify(
+            data
+          )}</p>`;
+        }
+      }
+
+      testInsertCart();
+    </script>
+  </body>
+</html>

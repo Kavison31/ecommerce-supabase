@@ -34,13 +34,8 @@
 
     // --- Connexion Admin ---
     document.getElementById("loginBtn").addEventListener("click", async () => {
-      const email = prompt("Email admin :");
-      const password = prompt("Mot de passe :");
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { alert("Erreur login : "+error.message); return; }
-      loginDiv.style.display = "none"; adminDiv.style.display = "block";
-      loadProducts();
-    });
+  await supabase.auth.signInWithOAuth({ provider: 'github' });
+});
 
     // --- Charger produits ---
     async function loadProducts() {

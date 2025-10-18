@@ -73,20 +73,44 @@
 
       container.innerHTML = `<h2>🧺 Produits disponibles</h2>`;
 
-      products.forEach((p) => {
-        const div = document.createElement("div");
-        div.style = "border:1px solid #ccc; padding:10px; margin:10px; border-radius:8px;";
-        div.innerHTML = `
-          <h3>${p.title}</h3>
-          <p>${p.description || ""}</p>
-          <p><strong>${p.price} ${p.currency}</strong></p>
-          <button>Ajouter au panier</button>
-        `;
+     products.forEach((p) => {
+  const div = document.createElement("div");
+  div.style = "border:1px solid #ccc; padding:10px; margin:10px; border-radius:8px;";
 
-        // Action bouton
-        div.querySelector("button").addEventListener("click", async () => {
-          await addToCart(p.id, p.price);
+  // Récupérer les images du produit
+  const imagesDiv = document.createElement("div");
+  imagesDiv.style = "margin-bottom:8px;";
+
+  supabase
+    .from("product_images")
+    .select("*")
+    .eq("product_id", p.id)
+    .then(({ data: imgs, error }) => {
+      if (!error && imgs.length > 0) {
+        imgs.forEach(img => {
+          const imgEl = document.createElement("img");
+          imgEl.src = `${SUPABASE_URL}/storage/v1/object/public/${img.path}`;
+          imgEl.style = "max-width:150px; margin-right:5px; border-radius:4px;";
+          imagesDiv.appendChild(imgEl);
         });
+      }
+    });
+
+  div.appendChild(imagesDiv);
+
+  div.innerHTML += `
+    <h3>${p.title}</h3>
+    <p>${p.description || ""}</p>
+    <p><strong>${p.price} ${p.currency}</strong></p>
+    <button>Ajouter au panier</button>
+  `;
+
+  div.querySelector("button").addEventListener("click", async () => {
+    await addToCart(p.id, p.price);
+  });
+
+  container.appendChild(div);
+});
 
         container.appendChild(div);
       });

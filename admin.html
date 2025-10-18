@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin E-commerce</title>
+</head>
+<body>
+  <h1>⚙️ Admin Panel</h1>
+  <div id="login">
+    <button id="loginBtn">Se connecter</button>
+  </div>
+  <div id="admin" style="display:none;">
+    <h2>Produits existants</h2>
+    <div id="products-list"></div>
+    <h2>Ajouter un produit</h2>
+    <input type="text" id="title" placeholder="Titre">
+    <input type="text" id="slug" placeholder="Slug">
+    <input type="text" id="description" placeholder="Description">
+    <input type="number" id="price" placeholder="Prix XOF">
+    <input type="file" id="image">
+    <button id="addProduct">Ajouter</button>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+    const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const loginDiv = document.getElementById("login");
+    const adminDiv = document.getElementById("admin");
+
+    // --- Connexion Admin ---
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const email = prompt("Email admin :");
+      const password = prompt("Mot de passe :");
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) { alert("Erreur login : "+error.message); return; }
+      loginDiv.style.display = "none"; adminDiv.style.display = "block";
+      loadProducts();
+    });
+
+    // --- Charger produits ---
+    async function loadProducts() {
+      const { data: products } = await supabase.from("products").select("*");
+      const container = document.getElementById("products-list");
+      container.innerHTML = "";
+      products.forEach(p => container.innerHTML += `<p>${p.id} - ${p.title} - ${p.price} XOF</p>`);
+    }
+
+    // --- Ajouter produit avec image ---
+    document.getElementById("addProduct").addEventListener("click", async () => {
+      const title = document.getElementById("title").value;
+      const slug = document.getElementById("slug").value;
+      const description = document.getElementById("description").value;
+      const price = parseInt(document.getElementById("price").value);
+      const imageFile = document.getElementById("image").files[0];
+      if (!title || !slug || !price) { alert("Remplir tous les champs"); return; }
+
+      const { data: prod, error: prodErr } = await supabase.from("products")
+        .insert([{ title, slug, description, price, published:true }]).select();
+      if (prodErr) { alert("Erreur produit : "+prodErr.message); return; }
+
+      if (imageFile) {
+        await supabase.storage.from("product-images")
+          .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert:true });
+        await supabase.from("product_images")
+          .insert([{ product_id: prod[0].id, path:`product-images/${prod[0].id}_${imageFile.name}` }]);
+      }
+
+     

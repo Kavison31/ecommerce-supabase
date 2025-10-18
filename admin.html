@@ -4,21 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin E-commerce</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    input, button { margin: 5px 0; padding: 5px; }
+    #products-list p { border-bottom: 1px solid #ccc; padding: 5px 0; }
+  </style>
 </head>
 <body>
   <h1>⚙️ Admin Panel</h1>
+
+  <!-- Bouton login -->
   <div id="login">
-    <button id="loginBtn">Se connecter</button>
+    <button id="loginBtn">Se connecter avec GitHub</button>
   </div>
+
+  <!-- Dashboard admin -->
   <div id="admin" style="display:none;">
     <h2>Produits existants</h2>
     <div id="products-list"></div>
+
     <h2>Ajouter un produit</h2>
-    <input type="text" id="title" placeholder="Titre">
-    <input type="text" id="slug" placeholder="Slug">
-    <input type="text" id="description" placeholder="Description">
-    <input type="number" id="price" placeholder="Prix XOF">
-    <input type="file" id="image">
+    <input type="text" id="title" placeholder="Titre"><br>
+    <input type="text" id="slug" placeholder="Slug"><br>
+    <input type="text" id="description" placeholder="Description"><br>
+    <input type="number" id="price" placeholder="Prix XOF"><br>
+    <input type="file" id="image"><br>
     <button id="addProduct">Ajouter</button>
   </div>
 
@@ -26,23 +36,44 @@
     import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
     const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU"; // Remplace par ta clé
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const loginDiv = document.getElementById("login");
+    const loginBtn = document.getElementById("loginBtn");
     const adminDiv = document.getElementById("admin");
 
-    // --- Connexion Admin ---
-    document.getElementById("loginBtn").addEventListener("click", async () => {
-  await supabase.auth.signInWithOAuth({ provider: 'github' });
-});
+    // --- Login GitHub OAuth ---
+    loginBtn.addEventListener("click", async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: { redirectTo: window.location.href }
+      });
+      if (error) console.error("Erreur login GitHub :", error.message);
+    });
 
-    // --- Charger produits ---
+    // --- Vérifier si l'utilisateur est déjà connecté ---
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      loginDiv.style.display = "none";
+      adminDiv.style.display = "block";
+      loadProducts();
+    }
+
+    // --- Charger produits existants ---
     async function loadProducts() {
-      const { data: products } = await supabase.from("products").select("*");
+      const { data: products, error } = await supabase
+        .from("products").select("*").order('id', { ascending: true });
       const container = document.getElementById("products-list");
       container.innerHTML = "";
-      products.forEach(p => container.innerHTML += `<p>${p.id} - ${p.title} - ${p.price} XOF</p>`);
+      if (error) { container.innerHTML = "Erreur chargement produits : " + error.message; return; }
+      if (!products || products.length === 0) { container.innerHTML = "Aucun produit."; return; }
+
+      products.forEach(p => {
+        const div = document.createElement("div");
+        div.innerHTML = `<p>ID:${p.id} | ${p.title} | ${p.price} XOF | Publié: ${p.published ? "Oui" : "Non"}</p>`;
+        container.appendChild(div);
+      });
     }
 
     // --- Ajouter produit avec image ---
@@ -52,17 +83,31 @@
       const description = document.getElementById("description").value;
       const price = parseInt(document.getElementById("price").value);
       const imageFile = document.getElementById("image").files[0];
+
       if (!title || !slug || !price) { alert("Remplir tous les champs"); return; }
 
+      // 1️⃣ Ajouter produit
       const { data: prod, error: prodErr } = await supabase.from("products")
         .insert([{ title, slug, description, price, published:true }]).select();
-      if (prodErr) { alert("Erreur produit : "+prodErr.message); return; }
+      if (prodErr) { alert("Erreur produit : " + prodErr.message); return; }
 
+      // 2️⃣ Upload image
       if (imageFile) {
-        await supabase.storage.from("product-images")
-          .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert:true });
+        const { error: imgErr } = await supabase.storage
+          .from("product-images")
+          .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert: true });
+        if (imgErr) { alert("Erreur upload image : " + imgErr.message); return; }
+
+        // 3️⃣ Ajouter image dans la table product_images
         await supabase.from("product_images")
           .insert([{ product_id: prod[0].id, path:`product-images/${prod[0].id}_${imageFile.name}` }]);
       }
+
+      alert("Produit ajouté !");
+      loadProducts();
+    });
+  </script>
+</body>
+</html>
 
      

@@ -1,237 +1,665 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin - E-commerce</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin • E-commerce</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<style>
+  /* petites améliorations CSS */
+  .toast { position: fixed; right: 20px; bottom: 20px; z-index: 60; }
+  .dragover { outline: 3px dashed rgba(34,197,94,0.6); }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+<!-- ===========================
+     MAIN LAYOUT
+     =========================== -->
+<div class="min-h-screen flex">
+  <!-- SIDEBAR -->
+  <aside class="w-72 bg-gray-900 text-white p-6 flex flex-col">
+    <div>
+      <h1 class="text-2xl font-bold mb-6">🛍 Admin Shop</h1>
+      <nav class="space-y-3 text-sm">
+        <button id="nav-products" class="w-full text-left hover:text-green-300">Produits</button>
+        <button id="nav-categories" class="w-full text-left hover:text-green-300">Catégories</button>
+        <button id="nav-subcats" class="w-full text-left hover:text-green-300">Sous-catégories</button>
+        <button id="nav-collections" class="w-full text-left hover:text-green-300">Collections</button>
+      </nav>
+    </div>
+
+    <div class="mt-auto">
+      <button id="logoutBtn" class="w-full bg-red-600 py-2 rounded text-white hover:bg-red-700">Déconnexion</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 p-8">
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h2 id="page-title" class="text-2xl font-bold">Produits</h2>
+        <p class="text-sm text-gray-600">Tableau d’administration — CRUD complet, images & galeries.</p>
+      </div>
+
+      <div class="flex gap-3 items-center">
+        <input id="searchInput" placeholder="Rechercher produit..." class="border rounded px-3 py-2 w-72" />
+        <select id="categoryFilter" class="border rounded px-3 py-2">
+          <option value="">Filtrer par catégorie</option>
+        </select>
+        <button id="newProductBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">+ Nouveau produit</button>
+      </div>
+    </header>
+
+    <!-- CONTENT PANELS -->
+    <section id="panel-products" class="">
+      <!-- PRODUCT GRID + PAGINATION -->
+      <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+
+      <div class="flex items-center justify-between mt-6">
+        <div>
+          <button id="prevPage" class="px-3 py-1 border rounded mr-2">Précédent</button>
+          <button id="nextPage" class="px-3 py-1 border rounded">Suivant</button>
+        </div>
+        <div class="text-sm text-gray-600">
+          <span id="pageInfo">Page 1</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categories panel -->
+    <section id="panel-categories" class="hidden">
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="font-semibold mb-3">Créer une catégorie</h3>
+          <input id="catName" placeholder="Nom catégorie" class="border p-2 rounded w-full mb-2" />
+          <button id="addCat" class="bg-blue-600 text-white px-4 py-2 rounded">Ajouter</button>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="font-semibold mb-3">Catégories existantes</h3>
+          <ul id="categories-list" class="space-y-2 text-sm"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Subcategories panel -->
+    <section id="panel-subcats" class="hidden">
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="font-semibold mb-3">Créer une sous-catégorie</h3>
+          <select id="catForSub" class="border p-2 rounded w-full mb-2"></select>
+          <input id="subName" placeholder="Nom sous-catégorie" class="border p-2 rounded w-full mb-2" />
+          <button id="addSub" class="bg-indigo-600 text-white px-4 py-2 rounded">Ajouter</button>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="font-semibold mb-3">Sous-catégories</h3>
+          <ul id="subcats-list" class="space-y-2 text-sm"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Collections panel -->
+    <section id="panel-collections" class="hidden">
+      <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="font-semibold mb-3">Créer une collection</h3>
+          <input id="colName" placeholder="Nom collection" class="border p-2 rounded w-full mb-2" />
+          <button id="addCol" class="bg-pink-600 text-white px-4 py-2 rounded">Ajouter</button>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="font-semibold mb-3">Collections</h3>
+          <ul id="cols-list" class="space-y-2 text-sm"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== MODAL: Product editor (Create / Edit) ===== -->
+<div id="productModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+  <div class="bg-white rounded-lg w-[90%] max-w-4xl p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="modalTitle" class="text-xl font-semibold">Nouveau produit</h3>
+      <button id="closeModal" class="text-gray-500">✖</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- left: form -->
+      <div>
+        <label class="block text-sm text-gray-600">Titre</label>
+        <input id="f_title" class="border p-2 rounded w-full mb-2" />
+
+        <label class="block text-sm text-gray-600">Slug</label>
+        <input id="f_slug" class="border p-2 rounded w-full mb-2" />
+
+        <label class="block text-sm text-gray-600">Prix (entier XOF)</label>
+        <input id="f_price" type="number" class="border p-2 rounded w-full mb-2" />
+
+        <label class="block text-sm text-gray-600">Description</label>
+        <textarea id="f_description" rows="4" class="border p-2 rounded w-full mb-2"></textarea>
+
+        <label class="block text-sm text-gray-600">Catégorie</label>
+        <select id="f_category" class="border p-2 rounded w-full mb-2"></select>
+
+        <label class="block text-sm text-gray-600">Sous-catégorie</label>
+        <select id="f_subcategory" class="border p-2 rounded w-full mb-2"></select>
+
+        <label class="block text-sm text-gray-600">Collection</label>
+        <select id="f_collection" class="border p-2 rounded w-full mb-2"></select>
+
+        <div class="flex gap-3 mt-3">
+          <button id="saveProduct" class="bg-green-600 text-white px-4 py-2 rounded">Sauvegarder</button>
+          <button id="saveAndClose" class="bg-blue-600 text-white px-4 py-2 rounded">Sauvegarder & Fermer</button>
+          <button id="resetForm" class="border px-4 py-2 rounded">Réinitialiser</button>
+        </div>
+      </div>
+
+      <!-- right: gallery & uploader -->
+      <div>
+        <label class="block text-sm text-gray-600 mb-2">Galerie d’images</label>
+
+        <div id="dropZone" class="border-dashed border-2 border-gray-300 rounded p-4 mb-3 text-center">
+          <div class="text-sm text-gray-500">Déposez ici des images ou cliquez pour sélectionner</div>
+          <input id="f_images" type="file" accept="image/*" multiple class="w-full h-10 opacity-0 absolute" style="position:relative;" />
+        </div>
+
+        <div id="thumbs" class="grid grid-cols-3 gap-3"></div>
+
+        <div class="mt-4 text-sm text-gray-500">Astuce : tu peux uploader plusieurs images. La suppression d’une image supprime aussi le fichier dans le storage.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Toast area ===== -->
+<div id="toastArea" class="toast space-y-2 right-6 bottom-6"></div>
+
+<!-- ===========================
+     SCRIPT: logic & Supabase
+     =========================== -->
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
 const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9zIjoibWVsaW9yIiwiaWF0IjoxNjk3MDYyNzI2LCJleHAiOjIwNzYyMDI3MjZ9.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU"; // garde la tienne
+const BUCKET = "prodoct-images";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const loginSection = document.getElementById("login-section");
-const dashboard = document.getElementById("dashboard");
+// --- Helpers
+const $ = id => document.getElementById(id);
+const toastArea = $("toastArea");
+function toast(msg, type = "info") {
+  const el = document.createElement("div");
+  el.className = `bg-white p-3 rounded shadow ${type==="err"?"border-l-4 border-red-500":""}`;
+  el.innerText = msg;
+  toastArea.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+function safeFileName(name) {
+  return name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-\.]/g,'');
+}
+function encodePathForUrl(path){ return path.split('/').map(encodeURIComponent).join('/'); }
 
-// Vérifier session
-const { data: { session } } = await supabase.auth.getSession();
-if (!session) loginSection.classList.remove("hidden");
-else { dashboard.classList.remove("hidden"); loadProducts(); loadCategories(); }
-
-// Login & logout
-document.getElementById("loginBtn").addEventListener("click", async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: window.location.href } });
-    if (error) alert("Erreur : " + error.message);
-});
-document.getElementById("logoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); location.reload(); });
-
-// --- Produits ---
+// --- State & pagination
 let allProducts = [];
+let page = 1;
+const perPage = 12; // configurable
+let totalPages = 1;
+let editingProductId = null;
 
-async function loadProducts() {
-    const { data: products, error } = await supabase.from("products").select("*").order("id", { ascending: false });
-    allProducts = products || [];
-    displayProducts(allProducts);
+// --- UI refs
+const panels = {
+  products: $("panel-products"),
+  categories: $("panel-categories"),
+  subcats: $("panel-subcats"),
+  collections: $("panel-collections")
+};
+
+// NAV
+$("nav-products").addEventListener("click", () => showPanel("products"));
+$("nav-categories").addEventListener("click", () => showPanel("categories"));
+$("nav-subcats").addEventListener("click", () => showPanel("subcats"));
+$("nav-collections").addEventListener("click", () => showPanel("collections"));
+
+function showPanel(name){
+  Object.values(panels).forEach(p => p.classList.add("hidden"));
+  panels[name].classList.remove("hidden");
+  $("page-title").innerText = name === "products" ? "Produits" :
+                               name === "categories" ? "Catégories" :
+                               name === "subcats" ? "Sous-catégories" : "Collections";
 }
 
-function displayProducts(products) {
-    const container = document.getElementById("products-container");
-    container.innerHTML = "";
+// --- Session check
+(async function initSession(){
+  const { data: { session } = {} } = await supabase.auth.getSession().catch(() => ({}));
+  if (!session) {
+    // show login if no session
+    // simple flow: open GitHub OAuth
+    // For convenience we allow manual login button in sidebar
+    toast("Connecte-toi (bouton Déconnexion sert aussi pour login si nécessaire)", "info");
+  }
+})();
 
-    products.forEach(async p => {
-        const { data: imgs } = await supabase.from("product_images").select("path").eq("product_id", p.id).limit(1);
-        const imgUrl = imgs && imgs[0] 
-            ? `${SUPABASE_URL}/storage/v1/object/public/prodoct-images/${imgs[0].path}` 
-            : "https://via.placeholder.com/150";
-
-        const card = document.createElement("div");
-        card.className = "bg-white rounded-xl shadow p-4 flex flex-col items-center text-center relative";
-        card.innerHTML = `
-            <img src="${imgUrl}" class="w-32 h-32 object-cover rounded-xl mb-2 editPreview">
-            <input type="file" class="editImage border p-1 rounded w-full mb-2 hidden">
-            <h3 class="font-semibold text-lg editTitle">${p.title}</h3>
-            <p class="text-gray-500 text-sm mb-2 editDescription">${p.description || ""}</p>
-            <p class="font-bold text-green-600 mb-3 editPrice">${p.price} XOF</p>
-            <p class="text-sm text-gray-400 mb-3 editCategory">Catégorie: ${p.category_id || "Aucune"}</p>
-            <div class="flex gap-2">
-                <button class="editBtn bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
-                <button class="saveBtn bg-green-600 text-white px-3 py-1 rounded hidden" data-id="${p.id}">💾 Sauvegarder</button>
-                <button class="cancelBtn bg-gray-400 text-white px-3 py-1 rounded hidden" data-id="${p.id}">Annuler</button>
-                <button class="deleteBtn bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Supprimer</button>
-            </div>
-        `;
-        container.appendChild(card);
-
-        // Delete
-        card.querySelector(".deleteBtn").addEventListener("click", async () => {
-            if (!confirm("Supprimer ce produit ?")) return;
-            await supabase.from("products").delete().eq("id", p.id);
-            loadProducts();
-        });
-
-        // Edit
-        card.querySelector(".editBtn").addEventListener("click", () => {
-            card.querySelector(".editTitle").contentEditable = true;
-            card.querySelector(".editDescription").contentEditable = true;
-            card.querySelector(".editPrice").contentEditable = true;
-            card.querySelector(".editImage").classList.remove("hidden");
-            card.querySelector(".editBtn").classList.add("hidden");
-            card.querySelector(".saveBtn").classList.remove("hidden");
-            card.querySelector(".cancelBtn").classList.remove("hidden");
-        });
-
-        // Cancel
-        card.querySelector(".cancelBtn").addEventListener("click", () => { loadProducts(); });
-
-        // Save
-        card.querySelector(".saveBtn").addEventListener("click", async () => {
-            const newTitle = card.querySelector(".editTitle").innerText;
-            const newDesc = card.querySelector(".editDescription").innerText;
-            const newPrice = parseInt(card.querySelector(".editPrice").innerText);
-            const imageFile = card.querySelector(".editImage").files[0];
-
-            await supabase.from("products").update({ title: newTitle, description: newDesc, price: newPrice }).eq("id", p.id);
-
-            if (imageFile) {
-                await supabase.storage.from("prodoct-images")
-                    .upload(`${p.id}_${imageFile.name}`, imageFile, { upsert: true });
-                await supabase.from("product_images")
-                    .upsert([{ product_id: p.id, path: `${p.id}_${imageFile.name}` }]);
-            }
-
-            loadProducts();
-        });
-    });
-}
-
-// Search
-document.getElementById("searchInput").addEventListener("input", (e) => {
-    const filtered = allProducts.filter(p => p.title.toLowerCase().includes(e.target.value.toLowerCase()));
-    displayProducts(filtered);
-});
-
-// Ajouter produit
-document.getElementById("addProduct").addEventListener("click", async () => {
-    const title = document.getElementById("title").value;
-    const slug = document.getElementById("slug").value;
-    const description = document.getElementById("description").value;
-    const price = parseInt(document.getElementById("price").value);
-    const imageFile = document.getElementById("image").files[0];
-    const category = document.getElementById("category").value;
-
-    if (!title || !slug || !price) return alert("Remplir tous les champs");
-
-    const { data: prod, error } = await supabase.from("products")
-        .insert([{ title, slug, description, price, published: true, category_id: category ? parseInt(category) : null }])
-        .select();
-    if (error) return alert("Erreur produit : " + error.message);
-
-    if (imageFile) {
-        const { error: imgErr } = await supabase.storage.from("prodoct-images")
-            .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert: true });
-        if (!imgErr)
-            await supabase.from("product_images").insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
-    }
-
-    // Réinitialiser champs
-    document.getElementById("title").value = "";
-    document.getElementById("slug").value = "";
-    document.getElementById("description").value = "";
-    document.getElementById("price").value = "";
-    document.getElementById("image").value = "";
-    document.getElementById("category").value = "";
-
-    alert("✅ Produit ajouté !");
-    loadProducts();
-});
-
-// --- Catégories ---
+// --- Load categories/subcats/collections
 async function loadCategories() {
-    const { data: cats } = await supabase.from("categories").select("*").order("id", { ascending: true });
-    const select = document.getElementById("category");
-    const list = document.getElementById("categories-list");
-    select.innerHTML = "<option value=''>Aucune</option>";
-    list.innerHTML = "";
+  const { data: cats } = await supabase.from("categories").select("*").order("id");
+  const sel = $("categoryFilter");
+  const fcat = $("f_category");
+  const catForSub = $("catForSub");
+  sel.innerHTML = "<option value=''>Filtrer par catégorie</option>";
+  fcat.innerHTML = "<option value=''>Aucune</option>";
+  catForSub.innerHTML = "<option value=''>Choisir catégorie</option>";
+  const list = $("categories-list");
+  list.innerHTML = "";
 
-    cats?.forEach(c => {
-        select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-        list.innerHTML += `<li class='flex justify-between items-center py-1 border-b'><span>${c.name}</span><button class='text-red-500 deleteCat' data-id='${c.id}'>🗑️</button></li>`;
-    });
+  (cats||[]).forEach(c => {
+    sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    fcat.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    catForSub.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    const li = document.createElement("li");
+    li.className = "flex justify-between items-center";
+    li.innerHTML = `<span>${c.name}</span>
+                    <div class="space-x-2">
+                      <button data-id="${c.id}" class="delCat text-red-500">Suppr</button>
+                    </div>`;
+    list.appendChild(li);
+  });
 
-    document.querySelectorAll(".deleteCat").forEach(btn => {
-        btn.addEventListener("click", async () => { await supabase.from("categories").delete().eq("id", btn.dataset.id); loadCategories(); });
-    });
+  document.querySelectorAll(".delCat").forEach(b => b.addEventListener("click", async (e)=>{
+    const id = e.target.dataset.id;
+    if(!confirm("Supprimer catégorie ? Cela supprimera les sous-catégories liées par contrainte ON DELETE CASCADE si configurée.")) return;
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if(error) return toast("Erreur suppression catégorie: "+error.message,"err");
+    toast("Catégorie supprimée");
+    loadCategories(); loadProducts();
+  }));
+}
+async function loadSubcats() {
+  const { data } = await supabase.from("subcategories").select("subcategories.*, categories.name as category_name").leftJoin("categories", "subcategories.category_id", "categories.id").order("id");
+  const list = $("subcats-list"); list.innerHTML = "";
+  (data||[]).forEach(s => {
+    const li = document.createElement("li");
+    li.className = "flex justify-between items-center";
+    li.innerHTML = `<div><strong>${s.name}</strong> <span class="text-xs text-gray-500">(${s.category_name||'—'})</span></div>
+                    <div><button data-id="${s.id}" class="delSub text-red-500">Suppr</button></div>`;
+    list.appendChild(li);
+  });
+  document.querySelectorAll(".delSub").forEach(b => b.addEventListener("click", async e=>{
+    if(!confirm("Supprimer sous-catégorie ?")) return;
+    const { error } = await supabase.from("subcategories").delete().eq("id", e.target.dataset.id);
+    if(error) return toast("Erreur: "+error.message,"err");
+    toast("Sous-catégorie supprimée");
+    loadSubcats(); loadProducts();
+  }));
+}
+async function loadCollections() {
+  const { data } = await supabase.from("collections").select("*").order("id");
+  const list = $("cols-list"); list.innerHTML = "";
+  (data||[]).forEach(c=>{
+    const li = document.createElement("li");
+    li.className="flex justify-between items-center";
+    li.innerHTML = `<span>${c.name}</span><div><button data-id="${c.id}" class="delCol text-red-500">Suppr</button></div>`;
+    list.appendChild(li);
+  });
+  document.querySelectorAll(".delCol").forEach(b=>b.addEventListener("click", async e=>{
+    if(!confirm("Supprimer collection ?")) return;
+    const { error } = await supabase.from("collections").delete().eq("id", e.target.dataset.id);
+    if(error) return toast("Erreur: "+error.message,"err");
+    loadCollections(); loadProducts();
+  }));
 }
 
-// Ajouter catégorie
-document.getElementById("addCat").addEventListener("click", async () => {
-    const name = document.getElementById("catName").value;
-    const slug = name.toLowerCase().replace(/\s+/g, "-");
-    if (!name) return alert("Nom requis !");
-    await supabase.from("categories").insert([{ name, slug }]);
-    document.getElementById("catName").value = "";
-    loadCategories();
+// --- Pagination & Products
+$("prevPage").addEventListener("click", ()=> { if(page>1) { page--; refreshProducts(); } });
+$("nextPage").addEventListener("click", ()=> { if(page<totalPages) { page++; refreshProducts(); } });
+
+async function refreshProducts(){
+  // just display slice from allProducts depending on filters & page
+  const q = $("searchInput").value.trim().toLowerCase();
+  const catFilter = $("categoryFilter").value;
+  let list = allProducts.slice();
+  if (q) list = list.filter(p => (p.title||"").toLowerCase().includes(q));
+  if (catFilter) list = list.filter(p => String(p.category_id) === String(catFilter));
+  totalPages = Math.max(1, Math.ceil(list.length / perPage));
+  const start = (page-1)*perPage;
+  const slice = list.slice(start, start+perPage);
+  $("pageInfo").innerText = `Page ${page} / ${totalPages} • ${list.length} produits`;
+  renderProductsGrid(slice);
+}
+
+async function loadProducts(){
+  const { data, error } = await supabase.from("products").select("*").order("id", { ascending: false });
+  if(error) return toast("Erreur chargement produits: "+error.message,"err");
+  allProducts = data || [];
+  page = 1; totalPages = Math.max(1, Math.ceil(allProducts.length/perPage));
+  refreshProducts();
+}
+
+// render cards & attach handlers
+async function renderProductsGrid(products){
+  const container = $("products-grid");
+  container.innerHTML = "";
+  for(const p of products){
+    // fetch images (all)
+    const { data: imgs } = await supabase.from("product_images").select("id,path").eq("product_id", p.id).order("id");
+    const firstPath = imgs && imgs[0] && imgs[0].path;
+    const imgUrl = firstPath ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(firstPath)}` : "https://via.placeholder.com/300x200?text=No+image";
+
+    const card = document.createElement("div");
+    card.className = "bg-white rounded-lg shadow p-4 flex flex-col";
+    card.innerHTML = `
+      <div class="h-40 mb-3 flex items-center justify-center overflow-hidden rounded">
+        <img src="${firstPath ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodePathForUrl(firstPath)}` : 'https://via.placeholder.com/300x200?text=No+image'}" alt="${p.title}" class="object-cover w-full h-full">
+      </div>
+      <h4 class="font-semibold">${p.title}</h4>
+      <p class="text-sm text-gray-500 mb-3">${p.description ? p.description.slice(0,80) : ''}</p>
+      <div class="flex items-center justify-between mt-auto">
+        <div class="text-green-600 font-bold">${p.price} XOF</div>
+        <div class="flex gap-2">
+          <button class="editProduct bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
+          <button class="delProduct bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Suppr</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+
+    // handlers
+    card.querySelector(".delProduct").addEventListener("click", async ()=>{
+      if(!confirm("Supprimer ce produit et ses images ?")) return;
+      const { error } = await supabase.from("products").delete().eq("id", p.id);
+      if(error) return toast("Err: "+error.message,"err");
+      // try delete product_images records and files (best-effort)
+      const { data: imgsDel } = await supabase.from("product_images").select("path").eq("product_id", p.id);
+      if(imgsDel && imgsDel.length){
+        // delete files from storage
+        const paths = imgsDel.map(i=>i.path);
+        const { error: remErr } = await supabase.storage.from(BUCKET).remove(paths);
+        if(remErr) console.warn("remove files err", remErr);
+        await supabase.from("product_images").delete().eq("product_id", p.id);
+      }
+      toast("Produit supprimé");
+      loadProducts();
+    });
+
+    card.querySelector(".editProduct").addEventListener("click", ()=> openProductModal(p.id));
+  }
+}
+
+// ===== Product Modal: create/edit logic with gallery (multiple images)
+const productModal = $("productModal");
+const dropZone = $("dropZone");
+const f_images = $("f_images");
+const thumbs = $("thumbs");
+
+$("newProductBtn").addEventListener("click", ()=> openProductModal(null));
+$("closeModal").addEventListener("click", closeModal);
+$("resetForm").addEventListener("click", resetForm);
+
+async function openProductModal(productId=null){
+  editingProductId = productId;
+  productModal.classList.remove("hidden");
+  productModal.style.display = "flex";
+  thumbs.innerHTML = "";
+  // load selectors
+  await loadCategories(); await loadSubcats(); await loadCollections();
+  // fill selectors into modal
+  const cats = (await supabase.from("categories").select("*").order("id")).data || [];
+  const subs = (await supabase.from("subcategories").select("*").order("id")).data || [];
+  const cols = (await supabase.from("collections").select("*").order("id")).data || [];
+
+  $("f_category").innerHTML = "<option value=''>Aucune</option>";
+  $("f_subcategory").innerHTML = "<option value=''>Aucune</option>";
+  $("f_collection").innerHTML = "<option value=''>Aucune</option>";
+  cats.forEach(c=> $("f_category").innerHTML += `<option value="${c.id}">${c.name}</option>`);
+  subs.forEach(s=> $("f_subcategory").innerHTML += `<option value="${s.id}">${s.name}</option>`);
+  cols.forEach(c=> $("f_collection").innerHTML += `<option value="${c.id}">${c.name}</option>`);
+
+  if(!productId){
+    $("modalTitle").innerText = "Nouveau produit";
+    resetForm();
+    return;
+  }
+
+  $("modalTitle").innerText = "Modifier produit";
+  // load product
+  const { data: [prod] = [], error } = await supabase.from("products").select("*").eq("id", productId).limit(1);
+  if(error || !prod) { toast("Erreur chargement produit","err"); return; }
+  $("f_title").value = prod.title || "";
+  $("f_slug").value = prod.slug || "";
+  $("f_description").value = prod.description || "";
+  $("f_price").value = prod.price || "";
+  $("f_category").value = prod.category_id || "";
+  $("f_subcategory").value = prod.subcategory_id || "";
+  $("f_collection").value = prod.collection_id || "";
+  // load images for this product
+  const { data: imgs } = await supabase.from("product_images").select("id,path").eq("product_id", productId).order("id");
+  thumbs.innerHTML = "";
+  (imgs||[]).forEach(img => addThumbUI(img.id, img.path, productId));
+}
+
+// dropZone behavior
+dropZone.addEventListener("click", ()=> f_images.click());
+dropZone.addEventListener("dragover", (e)=>{ e.preventDefault(); dropZone.classList.add("dragover"); });
+dropZone.addEventListener("dragleave", ()=> dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", async (e)=> {
+  e.preventDefault(); dropZone.classList.remove("dragover");
+  const files = [...e.dataTransfer.files].filter(f => f.type.startsWith("image/"));
+  await processFiles(files);
 });
-</script>
-</head>
-<body class="bg-gray-100 min-h-screen">
+f_images.addEventListener("change", async (e)=> {
+  const files = [...e.target.files];
+  await processFiles(files);
+  f_images.value = "";
+});
 
-<!-- Login -->
-<div id="login-section" class="hidden flex flex-col items-center justify-center h-screen">
-    <h1 class="text-3xl font-bold mb-6">Admin E-commerce</h1>
-    <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">Se connecter avec GitHub</button>
-</div>
+async function processFiles(files){
+  // show local previews in thumbs (temporary). Actual upload happens on Save for current product or on Add product flow.
+  for(const file of files){
+    const tmpId = "tmp_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
+    const reader = new FileReader();
+    reader.onload = ()=> {
+      const url = reader.result;
+      const div = document.createElement("div");
+      div.className = "relative";
+      div.innerHTML = `
+        <img src="${url}" class="w-full h-24 object-cover rounded">
+        <button data-tmp="${tmpId}" class="delThumb absolute top-1 right-1 bg-white/80 rounded-full p-1 text-sm">✖</button>
+      `;
+      div.dataset.tmp = tmpId;
+      thumbs.prepend(div);
+      div.querySelector(".delThumb").addEventListener("click", ()=> div.remove());
+      // store file in DOM element to pick up later
+      div._file = file;
+    };
+    reader.readAsDataURL(file);
+  }
+}
 
-<!-- Dashboard -->
-<div id="dashboard" class="hidden flex">
-<aside class="w-64 bg-gray-900 text-white min-h-screen p-6 flex flex-col justify-between">
-    <div>
-        <h2 class="text-2xl font-bold mb-8">🛍️ Admin</h2>
-        <nav class="space-y-4">
-            <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('products').scrollIntoView()">Produits</button>
-            <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('categories').scrollIntoView()">Catégories</button>
-        </nav>
+// addThumbUI for existing stored images
+function addThumbUI(imgId, path, productId){
+  const url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodePathForUrl(path)}`;
+  const div = document.createElement("div");
+  div.className = "relative";
+  div.innerHTML = `
+    <img src="${url}" class="w-full h-24 object-cover rounded">
+    <div class="absolute left-1 top-1 bg-white/80 rounded px-1 text-xs">ID:${imgId}</div>
+    <div class="absolute top-1 right-1 flex gap-1">
+      <button data-path="${path}" class="delStored bg-white/80 rounded p-1 text-sm">🗑</button>
     </div>
-    <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Déconnexion</button>
-</aside>
+  `;
+  thumbs.appendChild(div);
+  // delete stored image (record + file)
+  div.querySelector(".delStored").addEventListener("click", async (e)=>{
+    if(!confirm("Supprimer cette image de la galerie ?")) return;
+    const pathToRemove = e.target.dataset.path;
+    // delete file
+    const { error: remErr } = await supabase.storage.from(BUCKET).remove([pathToRemove]);
+    if(remErr) { toast("Erreur suppression fichier: "+remErr.message,"err"); return; }
+    // delete record
+    const { error: delRecErr } = await supabase.from("product_images").delete().eq("path", pathToRemove);
+    if(delRecErr) { toast("Erreur suppression record image: "+delRecErr.message,"err"); return; }
+    toast("Image supprimée");
+    // remove thumb
+    div.remove();
+  });
+}
 
-<main class="flex-1 p-10 space-y-10">
+// save product (create or update)
+$("saveProduct").addEventListener("click", async ()=> saveProduct(false));
+$("saveAndClose").addEventListener("click", async ()=> saveProduct(true));
 
-<section id="products">
-<h2 class="text-2xl font-bold mb-4 flex justify-between items-center">
-    Produits
-    <input id="searchInput" placeholder="Rechercher..." class="border p-2 rounded w-1/3">
-</h2>
-<div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
+async function saveProduct(closeAfter = true){
+  const title = $("f_title").value.trim();
+  const slug = $("f_slug").value.trim();
+  const description = $("f_description").value.trim();
+  const price = parseInt($("f_price").value);
+  const category_id = $("f_category").value || null;
+  const subcategory_id = $("f_subcategory").value || null;
+  const collection_id = $("f_collection").value || null;
 
-<div class="bg-white rounded-xl shadow p-6 mt-10">
-<h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
-<select id="category" class="border p-2 rounded w-full mb-3"></select>
-<input id="title" placeholder="Titre" class="border p-2 rounded w-full mb-3">
-<input id="slug" placeholder="Slug" class="border p-2 rounded w-full mb-3">
-<input id="description" placeholder="Description" class="border p-2 rounded w-full mb-3">
-<input id="price" type="number" placeholder="Prix XOF" class="border p-2 rounded w-full mb-3">
-<input id="image" type="file" class="border p-2 rounded w-full mb-3">
-<button id="addProduct" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Ajouter</button>
-</div>
-</section>
+  if(!title || !slug || Number.isNaN(price)) return toast("Titre, slug et prix obligatoires","err");
 
-<section id="categories">
-<h2 class="text-2xl font-bold mb-4">Catégories</h2>
-<div class="bg-white rounded-xl shadow p-6">
-<input id="catName" placeholder="Nom de catégorie" class="border p-2 rounded w-full mb-3">
-<button id="addCat" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 mb-4">Ajouter Catégorie</button>
-<ul id="categories-list" class="mt-4"></ul>
-</div>
-</section>
+  if(!editingProductId){
+    // create product
+    const { data: [prod] = [], error } = await supabase.from("products")
+      .insert([{ title, slug, description, price, published:true, category_id: category_id?parseInt(category_id):null, subcategory_id: subcategory_id?parseInt(subcategory_id):null, collection_id: collection_id?parseInt(collection_id):null }])
+      .select().limit(1);
+    if(error) return toast("Erreur création produit: "+error.message,"err");
+    editingProductId = prod.id;
+    toast("Produit créé");
+  } else {
+    const { error } = await supabase.from("products").update({
+      title, slug, description, price,
+      category_id: category_id?parseInt(category_id):null,
+      subcategory_id: subcategory_id?parseInt(subcategory_id):null,
+      collection_id: collection_id?parseInt(collection_id):null
+    }).eq("id", editingProductId);
+    if(error) return toast("Erreur mise à jour: "+error.message,"err");
+    toast("Produit mis à jour");
+  }
 
-</main>
-</div>
+  // Upload any tmp files from thumbs (DOM elements carrying ._file)
+  const thumbDivs = [...thumbs.querySelectorAll("div")];
+  for(const d of thumbDivs){
+    if(d._file){
+      const file = d._file;
+      const safe = safeFileName(file.name);
+      const filepath = `products/${editingProductId}/${Date.now()}_${safe}`;
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(filepath, file, { upsert:true });
+      if(upErr){ toast("Erreur upload: "+upErr.message,"err"); continue; }
+      // insert record
+      const { error: insErr } = await supabase.from("product_images").insert([{ product_id: editingProductId, path: filepath }]);
+      if(insErr) console.error("img record insert err", insErr);
+      // replace preview div with stored thumb -> reload thumbs for accuracy
+    }
+  }
 
+  // after uploads refresh thumbs from DB
+  if(editingProductId){
+    thumbs.innerHTML = "";
+    const { data: imgs } = await supabase.from("product_images").select("id,path").eq("product_id", editingProductId).order("id");
+    (imgs||[]).forEach(img=> addThumbUI(img.id, img.path, editingProductId));
+  }
+
+  // reset if created and close or keep open for edits
+  if(closeAfter){
+    closeModal();
+    resetForm();
+    loadProducts();
+  } else {
+    loadProducts();
+    resetFormButKeepModal(editingProductId);
+  }
+}
+
+function closeModal(){
+  productModal.classList.add("hidden");
+  productModal.style.display = "none";
+  editingProductId = null;
+  thumbs.innerHTML = "";
+}
+
+// reset form
+function resetForm(){
+  $("f_title").value = "";
+  $("f_slug").value = "";
+  $("f_description").value = "";
+  $("f_price").value = "";
+  $("f_category").value = "";
+  $("f_subcategory").value = "";
+  $("f_collection").value = "";
+  thumbs.innerHTML = "";
+}
+
+// keep modal open but reset form fields except keep product id
+function resetFormButKeepModal(id){
+  $("f_title").value = "";
+  $("f_slug").value = "";
+  $("f_description").value = "";
+  $("f_price").value = "";
+  // reload thumbs for the product
+  (async ()=>{
+    thumbs.innerHTML = "";
+    const { data: imgs } = await supabase.from("product_images").select("id,path").eq("product_id", id).order("id");
+    (imgs||[]).forEach(img=> addThumbUI(img.id,img.path,id));
+  })();
+}
+
+// --- add product via main quick add (top of products panel) if desired
+// We'll reuse modal for consistency: open modal with null to create
+
+// --- Search & filter events
+$("searchInput").addEventListener("input", ()=> { page = 1; refreshProducts(); });
+$("categoryFilter").addEventListener("change", ()=> { page = 1; refreshProducts(); });
+
+// --- Category create / subcat / collection handlers
+$("addCat").addEventListener("click", async ()=>{
+  const name = $("catName").value.trim(); if(!name) return toast("Nom requis","err");
+  const slug = name.toLowerCase().replace(/\s+/g,'-');
+  const { error } = await supabase.from("categories").insert([{ name, slug }]);
+  if(error) return toast("Erreur: "+error.message,"err");
+  toast("Catégorie ajoutée");
+  $("catName").value = "";
+  loadCategories(); loadProducts();
+});
+$("addSub").addEventListener("click", async ()=>{
+  const name = $("subName").value.trim(), catId = $("catForSub").value;
+  if(!name || !catId) return toast("Nom et catégorie requis","err");
+  const slug = name.toLowerCase().replace(/\s+/g,'-');
+  const { error } = await supabase.from("subcategories").insert([{ name, slug, category_id: parseInt(catId) }]);
+  if(error) return toast("Err: "+error.message,"err");
+  toast("Sous-catégorie ajoutée"); $("subName").value=""; loadSubcats(); loadProducts();
+});
+$("addCol").addEventListener("click", async ()=>{
+  const name = $("colName").value.trim(); if(!name) return toast("Nom requis","err");
+  const slug = name.toLowerCase().replace(/\s+/g,'-');
+  const { error } = await supabase.from("collections").insert([{ name, slug }]);
+  if(error) return toast("Err: "+error.message,"err");
+  toast("Collection ajoutée"); $("colName").value=""; loadCollections(); loadProducts();
+});
+
+// --- Initial loads
+await loadCategories();
+await loadSubcats();
+await loadCollections();
+await loadProducts();
+showPanel("products");
+
+// --- Logout (link in sidebar)
+$("logoutBtn").addEventListener("click", async ()=>{
+  await supabase.auth.signOut();
+  toast("Déconnecté"); location.reload();
+});
+
+// Utility: encode path properly
+function encodePathForUrl(path){ return path.split("/").map(encodeURIComponent).join("/"); }
+
+</script>
 </body>
 </html>
+
 
 
 

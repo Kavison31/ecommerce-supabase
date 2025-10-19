@@ -62,23 +62,51 @@ async function loadProducts() {
         <button class="editBtn bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
         <button class="deleteBtn bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Supprimer</button>
       </div>
+      <div class="editForm hidden mt-3 w-full text-left">
+        <input type="text" class="editTitle border p-1 rounded w-full mb-1" placeholder="Titre">
+        <input type="text" class="editDesc border p-1 rounded w-full mb-1" placeholder="Description">
+        <input type="number" class="editPrice border p-1 rounded w-full mb-1" placeholder="Prix XOF">
+        <select class="editCategory border p-1 rounded w-full mb-1"></select>
+        <button class="saveEdit bg-green-500 text-white px-3 py-1 rounded">Sauvegarder</button>
+      </div>
     `;
     container.appendChild(card);
-  }
 
-  document.querySelectorAll(".deleteBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
+    // Supprimer
+    card.querySelector(".deleteBtn").addEventListener("click", async () => {
       if (!confirm("Supprimer ce produit ?")) return;
-      await supabase.from("products").delete().eq("id", btn.dataset.id);
+      await supabase.from("products").delete().eq("id", p.id);
       loadProducts();
     });
-  });
 
-  document.querySelectorAll(".editBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      alert("🛠️ La fonction de modification sera activée bientôt !");
+    // Modifier
+    const editBtn = card.querySelector(".editBtn");
+    const editForm = card.querySelector(".editForm");
+    editBtn.addEventListener("click", async () => {
+      editForm.classList.toggle("hidden");
+      card.querySelector(".editTitle").value = p.title;
+      card.querySelector(".editDesc").value = p.description;
+      card.querySelector(".editPrice").value = p.price;
+
+      const catSelect = card.querySelector(".editCategory");
+      const { data: cats } = await supabase.from("categories").select("*").order("id");
+      catSelect.innerHTML = "<option value=''>Aucune</option>";
+      cats?.forEach(c => {
+        catSelect.innerHTML += `<option value="${c.id}" ${p.category_id==c.id?"selected":""}>${c.name}</option>`;
+      });
+
+      card.querySelector(".saveEdit").onclick = async () => {
+        const updated = {
+          title: card.querySelector(".editTitle").value,
+          description: card.querySelector(".editDesc").value,
+          price: parseInt(card.querySelector(".editPrice").value),
+          category_id: catSelect.value ? parseInt(catSelect.value) : null
+        };
+        await supabase.from("products").update(updated).eq("id", p.id);
+        loadProducts();
+      };
     });
-  });
+  }
 }
 
 // --- Ajouter produit ---
@@ -161,16 +189,14 @@ document.getElementById("addCat").addEventListener("click", async () => {
           <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('categories').scrollIntoView()">Catégories</button>
         </nav>
       </div>
-      <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-        Déconnexion
-      </button>
+      <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Déconnexion</button>
     </aside>
 
     <!-- Main -->
     <main class="flex-1 p-10 space-y-10">
       <section id="products">
-        <h2 class="text-2xl font-bold mb-4">Produits</h2>
-        <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></
+        <h2 class="
+
 
 
 

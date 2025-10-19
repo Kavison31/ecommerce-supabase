@@ -1,10 +1,43 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - E-commerce</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin E-commerce</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background:#f7f7f7; }
+    h1,h2 { color:#333; }
+    input, select, button { margin:5px 0; padding:8px; border-radius:4px; border:1px solid #ccc; }
+    button { cursor:pointer; background:#007bff; color:white; border:none; }
+    button:hover { background:#0056b3; }
+    .product-card { background:white; border-radius:8px; padding:10px; margin:10px 0; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    .product-card img { max-width:100px; margin-right:5px; border-radius:4px; }
+    .flex { display:flex; align-items:center; flex-wrap:wrap; }
+    .flex-between { display:flex; justify-content:space-between; align-items:center; }
+  </style>
+</head>
+<body>
+  <h1>⚙️ Admin Panel</h1>
+
+  <!-- Dashboard admin -->
+  <div id="admin">
+    <h2>Produits existants</h2>
+    <div id="products-list"></div>
+
+    <h2>Ajouter / Modifier un produit</h2>
+    <input type="text" id="title" placeholder="Titre"><br>
+    <input type="text" id="slug" placeholder="Slug"><br>
+    <input type="text" id="description" placeholder="Description"><br>
+    <input type="number" id="price" placeholder="Prix XOF"><br>
+
+    <select id="category"><option value="">Catégorie</option></select><br>
+    <select id="subcategory"><option value="">Sous-catégorie</option></select><br>
+    <select id="collection"><option value="">Collection</option></select><br>
+
+    <input type="file" id="image"><br>
+    <button id="addProduct">Ajouter</button>
+  </div>
+
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
@@ -12,191 +45,155 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const loginSection = document.getElementById("login-section");
-    const dashboard = document.getElementById("dashboard");
+    let editingProduct = null;
+    const originalAddFunction = addProduct;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) loginSection.classList.remove("hidden");
-    else {
-      dashboard.classList.remove("hidden");
-      loadProducts();
-      loadCategories();
+    // --- Charger catégories / sous-catégories / collections
+    async function loadSelectors() {
+      const { data: cats } = await supabase.from("categories").select("*");
+      const { data: subs } = await supabase.from("subcategories").select("*");
+      const { data: cols } = await supabase.from("collections").select("*");
+
+      const catSel = document.getElementById("category");
+      catSel.innerHTML = '<option value="">Catégorie</option>';
+      cats.forEach(c => catSel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+
+      const subSel = document.getElementById("subcategory");
+      subSel.innerHTML = '<option value="">Sous-catégorie</option>';
+      subs.forEach(s => subSel.innerHTML += `<option value="${s.id}">${s.name}</option>`);
+
+      const colSel = document.getElementById("collection");
+      colSel.innerHTML = '<option value="">Collection</option>';
+      cols.forEach(c => colSel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
     }
 
-    document.getElementById("loginBtn").addEventListener("click", async () => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: { redirectTo: window.location.href }
-      });
-      if (error) alert("Erreur : " + error.message);
-    });
-
-    document.getElementById("logoutBtn").addEventListener("click", async () => {
-      await supabase.auth.signOut();
-      location.reload();
-    });
-
-    // Charger produits
-    async function loadProducts() {
-      const { data: products, error } = await supabase.from("products").select("*").order("id", { ascending: false });
-      const container = document.getElementById("products-container");
-      container.innerHTML = "";
-
-      if (error) { container.innerHTML = `<p class='text-red-500'>${error.message}</p>`; return; }
-
-      for (const p of products) {
-        const { data: imgs } = await supabase.from("product_images").select("path").eq("product_id", p.id).limit(1);
-        const imgUrl = imgs && imgs[0]
-          ? `${SUPABASE_URL}/storage/v1/object/public/prodoct-images/${imgs[0].path}`
-          : "https://via.placeholder.com/150";
-
-        const card = document.createElement("div");
-        card.className = "bg-white rounded-xl shadow p-4 flex flex-col items-center text-center";
-        card.innerHTML = `
-          <img src="${imgUrl}" class="w-32 h-32 object-cover rounded-xl mb-2">
-          <h3 class="font-semibold text-lg">${p.title}</h3>
-          <p class="text-gray-500 text-sm mb-2">${p.description || ""}</p>
-          <p class="font-bold text-green-600 mb-3">${p.price} XOF</p>
-          <div class="flex gap-2">
-            <button class="editBtn bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
-            <button class="deleteBtn bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Supprimer</button>
-          </div>
-        `;
-        container.appendChild(card);
-      }
-
-      document.querySelectorAll(".deleteBtn").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("Supprimer ce produit ?")) return;
-          await supabase.from("products").delete().eq("id", btn.dataset.id);
-          loadProducts();
-        });
-      });
-
-      document.querySelectorAll(".editBtn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          alert("🛠️ La fonction de modification sera activée bientôt !");
-        });
-      });
-    }
-
-    // Ajouter un produit
-    document.getElementById("addProduct").addEventListener("click", async () => {
+    // --- Ajouter ou mettre à jour un produit
+    async function addProduct() {
       const title = document.getElementById("title").value;
       const slug = document.getElementById("slug").value;
       const description = document.getElementById("description").value;
       const price = parseInt(document.getElementById("price").value);
+      const category_id = document.getElementById("category").value || null;
+      const subcategory_id = document.getElementById("subcategory").value || null;
+      const collection_id = document.getElementById("collection").value || null;
       const imageFile = document.getElementById("image").files[0];
-      const category = document.getElementById("category").value;
 
-      if (!title || !slug || !price) return alert("Remplir tous les champs");
+      if (!title || !slug || !price) { alert("Remplir tous les champs"); return; }
 
-      const { data: prod, error } = await supabase.from("products")
-        .insert([{ title, slug, description, price, published: true, category_id: category ? parseInt(category) : null }])
-        .select();
+      if (editingProduct) {
+        // --- Update produit
+        const { error } = await supabase.from("products")
+          .update({ title, slug, description, price, category_id, subcategory_id, collection_id })
+          .eq("id", editingProduct.id);
+        if (error) { alert("Erreur mise à jour : " + error.message); return; }
 
-      if (error) return alert("Erreur produit : " + error.message);
+        // --- Upload image si nouveau
+        if (imageFile) {
+          const { error: imgErr } = await supabase.storage
+            .from("product-images")
+            .upload(`${editingProduct.id}_${imageFile.name}`, imageFile, { upsert:true });
+          if (imgErr) { alert("Erreur upload image : "+imgErr.message); return; }
+          await supabase.from("product_images").insert([{ product_id: editingProduct.id, path:`product-images/${editingProduct.id}_${imageFile.name}` }]);
+        }
 
-      if (imageFile) {
-        const { error: imgErr } = await supabase.storage.from("prodoct-images")
-          .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert: true });
-        if (!imgErr)
-          await supabase.from("product_images")
-            .insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
+        alert("Produit mis à jour !");
+        editingProduct = null;
+        document.getElementById("addProduct").innerText = "Ajouter";
+      } else {
+        // --- Ajouter produit
+        const { data: prod, error } = await supabase.from("products")
+          .insert([{ title, slug, description, price, category_id, subcategory_id, collection_id, published:true }])
+          .select();
+        if (error) { alert("Erreur produit : " + error.message); return; }
+
+        if (imageFile) {
+          const { error: imgErr } = await supabase.storage
+            .from("product-images")
+            .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert:true });
+          if (imgErr) { alert("Erreur upload image : "+imgErr.message); return; }
+          await supabase.from("product_images").insert([{ product_id: prod[0].id, path:`product-images/${prod[0].id}_${imageFile.name}` }]);
+        }
+
+        alert("Produit ajouté !");
       }
 
-      alert("✅ Produit ajouté !");
+      // Réinitialiser formulaire
+      document.getElementById("title").value = "";
+      document.getElementById("slug").value = "";
+      document.getElementById("description").value = "";
+      document.getElementById("price").value = "";
+      document.getElementById("category").value = "";
+      document.getElementById("subcategory").value = "";
+      document.getElementById("collection").value = "";
+      document.getElementById("image").value = "";
+
       loadProducts();
-    });
+    }
 
-    // Charger les catégories
-    async function loadCategories() {
-      const { data: cats } = await supabase.from("categories").select("*").order("id", { ascending: true });
-      const select = document.getElementById("category");
-      const list = document.getElementById("categories-list");
-      select.innerHTML = "<option value=''>Aucune</option>";
-      list.innerHTML = "";
+    document.getElementById("addProduct").onclick = addProduct;
 
-      cats?.forEach(c => {
-        select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-        list.innerHTML += `<li class='flex justify-between items-center py-1 border-b'><span>${c.name}</span><button class='text-red-500 deleteCat' data-id='${c.id}'>🗑️</button></li>`;
-      });
+    // --- Charger produits
+    async function loadProducts() {
+      const { data: products, error } = await supabase.from("products").select("*").order("id");
+      const container = document.getElementById("products-list");
+      container.innerHTML = "";
+      if (error) { container.innerHTML = "Erreur chargement produits : " + error.message; return; }
+      if (!products || products.length === 0) { container.innerHTML = "Aucun produit."; return; }
 
-      document.querySelectorAll(".deleteCat").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          await supabase.from("categories").delete().eq("id", btn.dataset.id);
-          loadCategories();
+      products.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "product-card";
+
+        // Récup images
+        const imagesDiv = document.createElement("div");
+        imagesDiv.className = "flex";
+        supabase.from("product_images").select("*").eq("product_id", p.id).then(({ data: imgs }) => {
+          if (imgs) imgs.forEach(img => {
+            const imgEl = document.createElement("img");
+            imgEl.src = `${SUPABASE_URL}/storage/v1/object/public/${img.path}`;
+            imagesDiv.appendChild(imgEl);
+          });
         });
+
+        div.innerHTML += `<strong>${p.title}</strong> | ${p.price} XOF`;
+
+        const btnEdit = document.createElement("button");
+        btnEdit.innerText = "Modifier";
+        btnEdit.style.marginLeft="10px";
+        btnEdit.onclick = () => {
+          editingProduct = p;
+          document.getElementById("title").value = p.title;
+          document.getElementById("slug").value = p.slug;
+          document.getElementById("description").value = p.description || "";
+          document.getElementById("price").value = p.price;
+          document.getElementById("category").value = p.category_id || "";
+          document.getElementById("subcategory").value = p.subcategory_id || "";
+          document.getElementById("collection").value = p.collection_id || "";
+          document.getElementById("addProduct").innerText = "Mettre à jour";
+        };
+
+        const btnDelete = document.createElement("button");
+        btnDelete.innerText = "Supprimer";
+        btnDelete.style.background="#dc3545";
+        btnDelete.onclick = async () => {
+          if (!confirm("Supprimer ce produit ?")) return;
+          await supabase.from("products").delete().eq("id", p.id);
+          loadProducts();
+        };
+
+        div.appendChild(imagesDiv);
+        div.appendChild(btnEdit);
+        div.appendChild(btnDelete);
+        container.appendChild(div);
       });
     }
 
-    // Ajouter catégorie
-    document.getElementById("addCat").addEventListener("click", async () => {
-      const name = document.getElementById("catName").value;
-      const slug = name.toLowerCase().replace(/\s+/g, "-");
-      if (!name) return alert("Nom requis !");
-      await supabase.from("categories").insert([{ name, slug }]);
-      document.getElementById("catName").value = "";
-      loadCategories();
-    });
+    loadSelectors();
+    loadProducts();
   </script>
-</head>
-
-<body class="bg-gray-100 min-h-screen">
-  <!-- Login -->
-  <div id="login-section" class="hidden flex flex-col items-center justify-center h-screen">
-    <h1 class="text-3xl font-bold mb-6">Admin E-commerce</h1>
-    <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
-      Se connecter avec GitHub
-    </button>
-  </div>
-
-  <!-- Dashboard -->
-  <div id="dashboard" class="hidden flex">
-    <!-- Sidebar -->
-    <aside class="w-64 bg-gray-900 text-white min-h-screen p-6 flex flex-col justify-between">
-      <div>
-        <h2 class="text-2xl font-bold mb-8">🛍️ Admin</h2>
-        <nav class="space-y-4">
-          <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('products').scrollIntoView()">Produits</button>
-          <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('categories').scrollIntoView()">Catégories</button>
-        </nav>
-      </div>
-      <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-        Déconnexion
-      </button>
-    </aside>
-
-    <!-- Main -->
-    <main class="flex-1 p-10 space-y-10">
-      <section id="products">
-        <h2 class="text-2xl font-bold mb-4">Produits</h2>
-        <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
-
-        <div class="bg-white rounded-xl shadow p-6 mt-10">
-          <h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
-          <select id="category" class="border p-2 rounded w-full mb-3"></select>
-          <input id="title" placeholder="Titre" class="border p-2 rounded w-full mb-3">
-          <input id="slug" placeholder="Slug" class="border p-2 rounded w-full mb-3">
-          <input id="description" placeholder="Description" class="border p-2 rounded w-full mb-3">
-          <input id="price" type="number" placeholder="Prix XOF" class="border p-2 rounded w-full mb-3">
-          <input id="image" type="file" class="border p-2 rounded w-full mb-3">
-          <button id="addProduct" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Ajouter</button>
-        </div>
-      </section>
-
-      <section id="categories">
-        <h2 class="text-2xl font-bold mb-4">Catégories</h2>
-        <div class="bg-white rounded-xl shadow p-6">
-          <input id="catName" placeholder="Nom de catégorie" class="border p-2 rounded w-full mb-3">
-          <button id="addCat" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Ajouter</button>
-          <ul id="categories-list" class="mt-4"></ul>
-        </div>
-      </section>
-    </main>
-  </div>
 </body>
 </html>
+
 
 
 

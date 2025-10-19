@@ -18,16 +18,26 @@ const dashboard = document.getElementById("dashboard");
 // Vérifier session
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) loginSection.classList.remove("hidden");
-else { dashboard.classList.remove("hidden"); loadProducts(); loadCategories(); }
+else {
+    dashboard.classList.remove("hidden");
+    loadProducts();
+    loadCategories();
+}
 
-// Login & logout
+// Login/Logout
 document.getElementById("loginBtn").addEventListener("click", async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: window.location.href } });
+    const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: { redirectTo: window.location.href }
+    });
     if (error) alert("Erreur : " + error.message);
 });
-document.getElementById("logoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); location.reload(); });
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    location.reload();
+});
 
-// --- Produits ---
+// Charger produits
 async function loadProducts() {
     const { data: products, error } = await supabase.from("products").select("*").order("id", { ascending: false });
     const container = document.getElementById("products-container");
@@ -35,71 +45,42 @@ async function loadProducts() {
     if (error) { container.innerHTML = `<p class='text-red-500'>${error.message}</p>`; return; }
 
     for (const p of products) {
+        // Charger image principale
         const { data: imgs } = await supabase.from("product_images").select("path").eq("product_id", p.id).limit(1);
-        const imgUrl = imgs && imgs[0] 
-            ? `${SUPABASE_URL}/storage/v1/object/public/prodoct-images/${imgs[0].path}` 
+        const imgUrl = imgs && imgs[0]
+            ? `${SUPABASE_URL}/storage/v1/object/public/prodoct-images/${imgs[0].path}`
             : "https://via.placeholder.com/150";
 
         const card = document.createElement("div");
-        card.className = "bg-white rounded-xl shadow p-4 flex flex-col items-center text-center relative";
+        card.className = "bg-white rounded-xl shadow p-4 flex flex-col items-center text-center";
         card.innerHTML = `
-            <img src="${imgUrl}" class="w-32 h-32 object-cover rounded-xl mb-2 editPreview">
-            <input type="file" class="editImage border p-1 rounded w-full mb-2 hidden">
-            <h3 class="font-semibold text-lg editTitle">${p.title}</h3>
-            <p class="text-gray-500 text-sm mb-2 editDescription">${p.description || ""}</p>
-            <p class="font-bold text-green-600 mb-3 editPrice">${p.price} XOF</p>
-            <p class="text-sm text-gray-400 mb-3 editCategory">Catégorie: ${p.category_id || "Aucune"}</p>
+            <img src="${imgUrl}" class="w-32 h-32 object-cover rounded-xl mb-2">
+            <h3 class="font-semibold text-lg">${p.title}</h3>
+            <p class="text-gray-500 text-sm mb-2">${p.description || ""}</p>
+            <p class="font-bold text-green-600 mb-3">${p.price} XOF</p>
             <div class="flex gap-2">
                 <button class="editBtn bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
-                <button class="saveBtn bg-green-600 text-white px-3 py-1 rounded hidden" data-id="${p.id}">💾 Sauvegarder</button>
-                <button class="cancelBtn bg-gray-400 text-white px-3 py-1 rounded hidden" data-id="${p.id}">Annuler</button>
                 <button class="deleteBtn bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Supprimer</button>
             </div>
         `;
         container.appendChild(card);
-
-        // Delete
-        card.querySelector(".deleteBtn").addEventListener("click", async () => {
-            if (!confirm("Supprimer ce produit ?")) return;
-            await supabase.from("products").delete().eq("id", p.id);
-            loadProducts();
-        });
-
-        // Edit
-        card.querySelector(".editBtn").addEventListener("click", () => {
-            card.querySelector(".editTitle").contentEditable = true;
-            card.querySelector(".editDescription").contentEditable = true;
-            card.querySelector(".editPrice").contentEditable = true;
-            card.querySelector(".editImage").classList.remove("hidden");
-            card.querySelector(".editBtn").classList.add("hidden");
-            card.querySelector(".saveBtn").classList.remove("hidden");
-            card.querySelector(".cancelBtn").classList.remove("hidden");
-        });
-
-        // Cancel
-        card.querySelector(".cancelBtn").addEventListener("click", () => { loadProducts(); });
-
-        // Save
-        card.querySelector(".saveBtn").addEventListener("click", async () => {
-            const newTitle = card.querySelector(".editTitle").innerText;
-            const newDesc = card.querySelector(".editDescription").innerText;
-            const newPrice = parseInt(card.querySelector(".editPrice").innerText);
-            const imageFile = card.querySelector(".editImage").files[0];
-
-            // Update produit
-            await supabase.from("products").update({ title: newTitle, description: newDesc, price: newPrice }).eq("id", p.id);
-
-            // Update image si changé
-            if (imageFile) {
-                await supabase.storage.from("prodoct-images")
-                    .upload(`${p.id}_${imageFile.name}`, imageFile, { upsert: true });
-                await supabase.from("product_images")
-                    .upsert([{ product_id: p.id, path: `${p.id}_${imageFile.name}` }]);
-            }
-
-            loadProducts();
-        });
     }
+
+    // Supprimer produit
+    document.querySelectorAll(".deleteBtn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("Supprimer ce produit ?")) return;
+            await supabase.from("products").delete().eq("id", btn.dataset.id);
+            loadProducts();
+        });
+    });
+
+    // Modifier produit
+    document.querySelectorAll(".editBtn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            alert("🛠️ Fonction de modification à implémenter (y compris upload d'image).");
+        });
+    });
 }
 
 // Ajouter produit
@@ -113,37 +94,44 @@ document.getElementById("addProduct").addEventListener("click", async () => {
 
     if (!title || !slug || !price) return alert("Remplir tous les champs");
 
+    // 1️⃣ Ajouter produit
     const { data: prod, error } = await supabase.from("products")
         .insert([{ title, slug, description, price, published: true, category_id: category ? parseInt(category) : null }])
         .select();
     if (error) return alert("Erreur produit : " + error.message);
 
+    // 2️⃣ Upload image dans un sous-dossier par produit
     if (imageFile) {
-        const { error: imgErr } = await supabase.storage.from("prodoct-images")
-            .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert: true });
-        if (!imgErr)
-            await supabase.from("product_images").insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
+        const filePath = `products/${prod[0].id}/${imageFile.name}`;
+        const { error: imgErr } = await supabase.storage.from("prodoct-images").upload(filePath, imageFile, { upsert: true });
+        if (!imgErr) {
+            await supabase.from("product_images").insert([{ product_id: prod[0].id, path: filePath }]);
+        } else {
+            alert("Erreur upload image : " + imgErr.message);
+        }
     }
 
     alert("✅ Produit ajouté !");
     loadProducts();
 });
 
-// --- Catégories ---
+// Charger catégories
 async function loadCategories() {
     const { data: cats } = await supabase.from("categories").select("*").order("id", { ascending: true });
     const select = document.getElementById("category");
     const list = document.getElementById("categories-list");
     select.innerHTML = "<option value=''>Aucune</option>";
     list.innerHTML = "";
-
     cats?.forEach(c => {
         select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
         list.innerHTML += `<li class='flex justify-between items-center py-1 border-b'><span>${c.name}</span><button class='text-red-500 deleteCat' data-id='${c.id}'>🗑️</button></li>`;
     });
 
     document.querySelectorAll(".deleteCat").forEach(btn => {
-        btn.addEventListener("click", async () => { await supabase.from("categories").delete().eq("id", btn.dataset.id); loadCategories(); });
+        btn.addEventListener("click", async () => {
+            await supabase.from("categories").delete().eq("id", btn.dataset.id);
+            loadCategories();
+        });
     });
 }
 
@@ -158,52 +146,63 @@ document.getElementById("addCat").addEventListener("click", async () => {
 });
 </script>
 </head>
+
 <body class="bg-gray-100 min-h-screen">
+<!-- Login -->
 <div id="login-section" class="hidden flex flex-col items-center justify-center h-screen">
     <h1 class="text-3xl font-bold mb-6">Admin E-commerce</h1>
-    <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">Se connecter avec GitHub</button>
+    <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
+        Se connecter avec GitHub
+    </button>
 </div>
 
+<!-- Dashboard -->
 <div id="dashboard" class="hidden flex">
-<aside class="w-64 bg-gray-900 text-white min-h-screen p-6 flex flex-col justify-between">
-    <div>
-        <h2 class="text-2xl font-bold mb-8">🛍️ Admin</h2>
-        <nav class="space-y-4">
-            <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('products').scrollIntoView()">Produits</button>
-            <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('categories').scrollIntoView()">Catégories</button>
-        </nav>
-    </div>
-    <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Déconnexion</button>
-</aside>
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 text-white min-h-screen p-6 flex flex-col justify-between">
+        <div>
+            <h2 class="text-2xl font-bold mb-8">🛍️ Admin</h2>
+            <nav class="space-y-4">
+                <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('products').scrollIntoView()">Produits</button>
+                <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('categories').scrollIntoView()">Catégories</button>
+            </nav>
+        </div>
+        <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+            Déconnexion
+        </button>
+    </aside>
 
-<main class="flex-1 p-10 space-y-10">
-<section id="products">
-<h2 class="text-2xl font-bold mb-4">Produits</h2>
-<div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
-<div class="bg-white rounded-xl shadow p-6 mt-10">
-<h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
-<select id="category" class="border p-2 rounded w-full mb-3"></select>
-<input id="title" placeholder="Titre" class="border p-2 rounded w-full mb-3">
-<input id="slug" placeholder="Slug" class="border p-2 rounded w-full mb-3">
-<input id="description" placeholder="Description" class="border p-2 rounded w-full mb-3">
-<input id="price" type="number" placeholder="Prix XOF" class="border p-2 rounded w-full mb-3">
-<input id="image" type="file" class="border p-2 rounded w-full mb-3">
-<button id="addProduct" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Ajouter</button>
-</div>
-</section>
+    <!-- Main -->
+    <main class="flex-1 p-10 space-y-10">
+        <section id="products">
+            <h2 class="text-2xl font-bold mb-4">Produits</h2>
+            <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
 
-<section id="categories">
-<h2 class="text-2xl font-bold mb-4">Catégories</h2>
-<div class="bg-white rounded-xl shadow p-6">
-<input id="catName" placeholder="Nom de catégorie" class="border p-2 rounded w-full mb-3">
-<button id="addCat" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 mb-4">Ajouter Catégorie</button>
-<ul id="categories-list" class="mt-4"></ul>
-</div>
-</section>
-</main>
+            <div class="bg-white rounded-xl shadow p-6 mt-10">
+                <h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
+                <select id="category" class="border p-2 rounded w-full mb-3"></select>
+                <input id="title" placeholder="Titre" class="border p-2 rounded w-full mb-3">
+                <input id="slug" placeholder="Slug" class="border p-2 rounded w-full mb-3">
+                <input id="description" placeholder="Description" class="border p-2 rounded w-full mb-3">
+                <input id="price" type="number" placeholder="Prix XOF" class="border p-2 rounded w-full mb-3">
+                <input id="image" type="file" class="border p-2 rounded w-full mb-3">
+                <button id="addProduct" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Ajouter</button>
+            </div>
+        </section>
+
+        <section id="categories">
+            <h2 class="text-2xl font-bold mb-4">Catégories</h2>
+            <div class="bg-white rounded-xl shadow p-6">
+                <input id="catName" placeholder="Nom de catégorie" class="border p-2 rounded w-full mb-3">
+                <button id="addCat" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Ajouter</button>
+                <ul id="categories-list" class="mt-4"></ul>
+            </div>
+        </section>
+    </main>
 </div>
 </body>
 </html>
+
 
 
 

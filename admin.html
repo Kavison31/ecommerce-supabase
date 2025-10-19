@@ -15,16 +15,14 @@
     const loginSection = document.getElementById("login-section");
     const dashboard = document.getElementById("dashboard");
 
-    // Vérifier session
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      loginSection.classList.remove("hidden");
-    } else {
+    if (!session) loginSection.classList.remove("hidden");
+    else {
       dashboard.classList.remove("hidden");
       loadProducts();
+      loadCategories();
     }
 
-    // --- Login GitHub ---
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
@@ -33,27 +31,18 @@
       if (error) alert("Erreur : " + error.message);
     });
 
-    // --- Déconnexion ---
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.auth.signOut();
       location.reload();
     });
 
-    // --- Charger les produits ---
+    // Charger produits
     async function loadProducts() {
       const { data: products, error } = await supabase.from("products").select("*").order("id", { ascending: false });
       const container = document.getElementById("products-container");
       container.innerHTML = "";
 
-      if (error) {
-        container.innerHTML = `<p class='text-red-500'>Erreur chargement : ${error.message}</p>`;
-        return;
-      }
-
-      if (!products || products.length === 0) {
-        container.innerHTML = `<p class='text-gray-500'>Aucun produit disponible.</p>`;
-        return;
-      }
+      if (error) { container.innerHTML = `<p class='text-red-500'>${error.message}</p>`; return; }
 
       for (const p of products) {
         const { data: imgs } = await supabase.from("product_images").select("path").eq("product_id", p.id).limit(1);
@@ -62,58 +51,99 @@
           : "https://via.placeholder.com/150";
 
         const card = document.createElement("div");
-        card.className = "bg-white rounded-2xl shadow p-4 flex flex-col items-center text-center";
+        card.className = "bg-white rounded-xl shadow p-4 flex flex-col items-center text-center";
         card.innerHTML = `
           <img src="${imgUrl}" class="w-32 h-32 object-cover rounded-xl mb-2">
           <h3 class="font-semibold text-lg">${p.title}</h3>
           <p class="text-gray-500 text-sm mb-2">${p.description || ""}</p>
           <p class="font-bold text-green-600 mb-3">${p.price} XOF</p>
-          <button class="deleteBtn bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600" data-id="${p.id}">Supprimer</button>
+          <div class="flex gap-2">
+            <button class="editBtn bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
+            <button class="deleteBtn bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Supprimer</button>
+          </div>
         `;
         container.appendChild(card);
       }
 
-      // Gérer suppression
       document.querySelectorAll(".deleteBtn").forEach(btn => {
         btn.addEventListener("click", async () => {
-          const id = btn.dataset.id;
           if (!confirm("Supprimer ce produit ?")) return;
-          await supabase.from("products").delete().eq("id", id);
+          await supabase.from("products").delete().eq("id", btn.dataset.id);
           loadProducts();
+        });
+      });
+
+      document.querySelectorAll(".editBtn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          alert("🛠️ La fonction de modification sera activée bientôt !");
         });
       });
     }
 
-    // --- Ajouter un produit ---
+    // Ajouter un produit
     document.getElementById("addProduct").addEventListener("click", async () => {
       const title = document.getElementById("title").value;
       const slug = document.getElementById("slug").value;
       const description = document.getElementById("description").value;
       const price = parseInt(document.getElementById("price").value);
       const imageFile = document.getElementById("image").files[0];
+      const category = document.getElementById("category").value;
 
-      if (!title || !slug || !price) { alert("Remplir tous les champs obligatoires"); return; }
+      if (!title || !slug || !price) return alert("Remplir tous les champs");
 
-      const { data: prod, error } = await supabase.from("products").insert([{ title, slug, description, price, published: true }]).select();
-      if (error) { alert("Erreur produit : " + error.message); return; }
+      const { data: prod, error } = await supabase.from("products")
+        .insert([{ title, slug, description, price, published: true, category_id: category ? parseInt(category) : null }])
+        .select();
+
+      if (error) return alert("Erreur produit : " + error.message);
 
       if (imageFile) {
         const { error: imgErr } = await supabase.storage.from("prodoct-images")
           .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert: true });
-        if (imgErr) { alert("Erreur image : " + imgErr.message); return; }
-
-        await supabase.from("product_images")
-          .insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
+        if (!imgErr)
+          await supabase.from("product_images")
+            .insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
       }
 
       alert("✅ Produit ajouté !");
       loadProducts();
     });
+
+    // Charger les catégories
+    async function loadCategories() {
+      const { data: cats } = await supabase.from("categories").select("*").order("id", { ascending: true });
+      const select = document.getElementById("category");
+      const list = document.getElementById("categories-list");
+      select.innerHTML = "<option value=''>Aucune</option>";
+      list.innerHTML = "";
+
+      cats?.forEach(c => {
+        select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        list.innerHTML += `<li class='flex justify-between items-center py-1 border-b'><span>${c.name}</span><button class='text-red-500 deleteCat' data-id='${c.id}'>🗑️</button></li>`;
+      });
+
+      document.querySelectorAll(".deleteCat").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          await supabase.from("categories").delete().eq("id", btn.dataset.id);
+          loadCategories();
+        });
+      });
+    }
+
+    // Ajouter catégorie
+    document.getElementById("addCat").addEventListener("click", async () => {
+      const name = document.getElementById("catName").value;
+      const slug = name.toLowerCase().replace(/\s+/g, "-");
+      if (!name) return alert("Nom requis !");
+      await supabase.from("categories").insert([{ name, slug }]);
+      document.getElementById("catName").value = "";
+      loadCategories();
+    });
   </script>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
-  <!-- Section Login -->
+  <!-- Login -->
   <div id="login-section" class="hidden flex flex-col items-center justify-center h-screen">
     <h1 class="text-3xl font-bold mb-6">Admin E-commerce</h1>
     <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
@@ -129,7 +159,7 @@
         <h2 class="text-2xl font-bold mb-8">🛍️ Admin</h2>
         <nav class="space-y-4">
           <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('products').scrollIntoView()">Produits</button>
-          <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('orders').scrollIntoView()">Commandes</button>
+          <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('categories').scrollIntoView()">Catégories</button>
         </nav>
       </div>
       <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
@@ -137,7 +167,7 @@
       </button>
     </aside>
 
-    <!-- Main content -->
+    <!-- Main -->
     <main class="flex-1 p-10 space-y-10">
       <section id="products">
         <h2 class="text-2xl font-bold mb-4">Produits</h2>
@@ -145,6 +175,7 @@
 
         <div class="bg-white rounded-xl shadow p-6 mt-10">
           <h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
+          <select id="category" class="border p-2 rounded w-full mb-3"></select>
           <input id="title" placeholder="Titre" class="border p-2 rounded w-full mb-3">
           <input id="slug" placeholder="Slug" class="border p-2 rounded w-full mb-3">
           <input id="description" placeholder="Description" class="border p-2 rounded w-full mb-3">
@@ -154,14 +185,19 @@
         </div>
       </section>
 
-      <section id="orders">
-        <h2 class="text-2xl font-bold mb-4">Commandes</h2>
-        <p class="text-gray-500">📦 Cette section sera bientôt disponible.</p>
+      <section id="categories">
+        <h2 class="text-2xl font-bold mb-4">Catégories</h2>
+        <div class="bg-white rounded-xl shadow p-6">
+          <input id="catName" placeholder="Nom de catégorie" class="border p-2 rounded w-full mb-3">
+          <button id="addCat" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Ajouter</button>
+          <ul id="categories-list" class="mt-4"></ul>
+        </div>
       </section>
     </main>
   </div>
 </body>
 </html>
+
 
 
 

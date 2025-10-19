@@ -1,106 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin E-commerce</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - E-commerce</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      background-color: #0d1117;
-      color: #e6edf3;
-      font-family: 'Inter', sans-serif;
-    }
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 20px;
-      transition: all 0.3s ease;
-    }
-    .card:hover {
-      background: rgba(255, 255, 255, 0.1);
-      transform: translateY(-2px);
-    }
-    button {
-      transition: all 0.3s ease;
-    }
-    button:hover {
-      transform: scale(1.03);
-    }
-  </style>
-</head>
-<body class="min-h-screen flex">
-
-  <!-- Sidebar -->
-  <aside class="w-64 bg-[#161b22] p-6 flex flex-col justify-between">
-    <div>
-      <h1 class="text-2xl font-bold mb-8">⚙️ Admin Shop</h1>
-      <nav class="space-y-4">
-        <button id="tab-products" class="tab-btn w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">🛍️ Produits</button>
-        <button id="tab-add" class="tab-btn w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">➕ Ajouter</button>
-        <button id="tab-stats" class="tab-btn w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">📊 Statistiques</button>
-      </nav>
-    </div>
-    <button id="logoutBtn" class="bg-red-600 text-white py-2 rounded-lg mt-8 hover:bg-red-700">Se déconnecter</button>
-  </aside>
-
-  <!-- Main content -->
-  <main class="flex-1 p-10">
-
-    <!-- Section login -->
-    <div id="login" class="flex flex-col items-center justify-center h-full">
-      <h2 class="text-3xl font-semibold mb-6">Connexion Admin</h2>
-      <button id="loginBtn" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">Se connecter avec GitHub</button>
-    </div>
-
-    <!-- Section Produits -->
-    <div id="products-section" class="hidden">
-      <h2 class="text-3xl font-bold mb-6">Produits existants</h2>
-      <div id="products-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-    </div>
-
-    <!-- Section Ajouter -->
-    <div id="add-section" class="hidden">
-      <h2 class="text-3xl font-bold mb-6">Ajouter un produit</h2>
-      <div class="card max-w-md mx-auto">
-        <input type="text" id="title" placeholder="Titre" class="w-full p-2 mb-3 bg-[#21262d] border border-[#30363d] text-white">
-        <input type="text" id="slug" placeholder="Slug" class="w-full p-2 mb-3 bg-[#21262d] border border-[#30363d] text-white">
-        <input type="text" id="description" placeholder="Description" class="w-full p-2 mb-3 bg-[#21262d] border border-[#30363d] text-white">
-        <input type="number" id="price" placeholder="Prix XOF" class="w-full p-2 mb-3 bg-[#21262d] border border-[#30363d] text-white">
-        <input type="file" id="image" class="w-full mb-3 text-gray-300">
-        <button id="addProduct" class="w-full bg-green-600 py-2 text-white hover:bg-green-700">Ajouter le produit</button>
-      </div>
-    </div>
-
-    <!-- Section Statistiques -->
-    <div id="stats-section" class="hidden">
-      <h2 class="text-3xl font-bold mb-6">📊 Tableau de bord</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="card text-center">
-          <h3 class="text-gray-400 text-sm">Revenus totaux</h3>
-          <p id="revenus" class="text-2xl font-bold text-green-400">0 XOF</p>
-        </div>
-        <div class="card text-center">
-          <h3 class="text-gray-400 text-sm">Produits actifs</h3>
-          <p id="nbProduits" class="text-2xl font-bold text-blue-400">0</p>
-        </div>
-        <div class="card text-center">
-          <h3 class="text-gray-400 text-sm">Sessions visiteurs</h3>
-          <p id="nbSessions" class="text-2xl font-bold text-purple-400">0</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 class="text-xl font-semibold mb-4">Évolution des ventes (mock)</h3>
-        <canvas id="chartVentes" height="100"></canvas>
-      </div>
-    </div>
-
-  </main>
-
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
@@ -108,44 +12,26 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const loginDiv = document.getElementById("login");
-    const productsSection = document.getElementById("products-section");
-    const addSection = document.getElementById("add-section");
-    const statsSection = document.getElementById("stats-section");
+    const loginSection = document.getElementById("login-section");
+    const dashboard = document.getElementById("dashboard");
 
-    // Tabs
-    const tabs = {
-      "tab-products": productsSection,
-      "tab-add": addSection,
-      "tab-stats": statsSection
-    };
-    Object.keys(tabs).forEach(id => {
-      document.getElementById(id).onclick = () => showSection(id);
-    });
-
-    function showSection(id) {
-      Object.values(tabs).forEach(el => el.classList.add("hidden"));
-      tabs[id].classList.remove("hidden");
-      if (id === "tab-products") loadProducts();
-      if (id === "tab-stats") loadStats();
+    // Vérifier session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      loginSection.classList.remove("hidden");
+    } else {
+      dashboard.classList.remove("hidden");
+      loadProducts();
     }
 
-    // --- Connexion GitHub ---
+    // --- Login GitHub ---
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: { redirectTo: window.location.href }
       });
-      if (error) console.error("Erreur login GitHub :", error.message);
+      if (error) alert("Erreur : " + error.message);
     });
-
-    // --- Vérifier session ---
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      loginDiv.style.display = "none";
-      productsSection.classList.remove("hidden");
-      loadProducts();
-    }
 
     // --- Déconnexion ---
     document.getElementById("logoutBtn").addEventListener("click", async () => {
@@ -153,119 +39,127 @@
       location.reload();
     });
 
-    // --- Charger produits ---
+    // --- Charger les produits ---
     async function loadProducts() {
-      const { data: products, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("id", { ascending: true });
-
-      const container = document.getElementById("products-list");
+      const { data: products, error } = await supabase.from("products").select("*").order("id", { ascending: false });
+      const container = document.getElementById("products-container");
       container.innerHTML = "";
 
       if (error) {
-        container.innerHTML = `<p class="text-red-400">Erreur chargement : ${error.message}</p>`;
+        container.innerHTML = `<p class='text-red-500'>Erreur chargement : ${error.message}</p>`;
         return;
       }
-      if (!products.length) {
-        container.innerHTML = `<p class="text-gray-400">Aucun produit disponible.</p>`;
+
+      if (!products || products.length === 0) {
+        container.innerHTML = `<p class='text-gray-500'>Aucun produit disponible.</p>`;
         return;
       }
 
       for (const p of products) {
-        const { data: img } = await supabase
-          .from("product_images")
-          .select("path")
-          .eq("product_id", p.id)
-          .single();
+        const { data: imgs } = await supabase.from("product_images").select("path").eq("product_id", p.id).limit(1);
+        const imgUrl = imgs && imgs[0]
+          ? `${SUPABASE_URL}/storage/v1/object/public/prodoct-images/${imgs[0].path}`
+          : "https://via.placeholder.com/150";
 
-        const imgUrl = img
-          ? `${SUPABASE_URL}/storage/v1/object/public/${img.path}`
-          : "https://placehold.co/300x200?text=Sans+image";
-
-        const card = `
-          <div class="card">
-            <img src="${imgUrl}" alt="${p.title}" class="rounded-lg mb-3 w-full h-40 object-cover">
-            <h3 class="text-lg font-semibold">${p.title}</h3>
-            <p class="text-gray-400 text-sm">${p.description || "Pas de description"}</p>
-            <p class="mt-2 font-bold text-green-400">${p.price} XOF</p>
-          </div>`;
-        container.insertAdjacentHTML("beforeend", card);
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-2xl shadow p-4 flex flex-col items-center text-center";
+        card.innerHTML = `
+          <img src="${imgUrl}" class="w-32 h-32 object-cover rounded-xl mb-2">
+          <h3 class="font-semibold text-lg">${p.title}</h3>
+          <p class="text-gray-500 text-sm mb-2">${p.description || ""}</p>
+          <p class="font-bold text-green-600 mb-3">${p.price} XOF</p>
+          <button class="deleteBtn bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600" data-id="${p.id}">Supprimer</button>
+        `;
+        container.appendChild(card);
       }
+
+      // Gérer suppression
+      document.querySelectorAll(".deleteBtn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.id;
+          if (!confirm("Supprimer ce produit ?")) return;
+          await supabase.from("products").delete().eq("id", id);
+          loadProducts();
+        });
+      });
     }
 
-    // --- Ajouter produit ---
+    // --- Ajouter un produit ---
     document.getElementById("addProduct").addEventListener("click", async () => {
-      const title = document.getElementById("title").value.trim();
-      const slug = document.getElementById("slug").value.trim();
-      const description = document.getElementById("description").value.trim();
-      const price = parseInt(document.getElementById("price").value.trim());
+      const title = document.getElementById("title").value;
+      const slug = document.getElementById("slug").value;
+      const description = document.getElementById("description").value;
+      const price = parseInt(document.getElementById("price").value);
       const imageFile = document.getElementById("image").files[0];
 
-      if (!title || !slug || !price) {
-        alert("Remplir tous les champs !");
-        return;
-      }
+      if (!title || !slug || !price) { alert("Remplir tous les champs obligatoires"); return; }
 
-      const { data: prod, error: prodErr } = await supabase
-        .from("products")
-        .insert([{ title, slug, description, price, published: true }])
-        .select();
-
-      if (prodErr) return alert("Erreur : " + prodErr.message);
+      const { data: prod, error } = await supabase.from("products").insert([{ title, slug, description, price, published: true }]).select();
+      if (error) { alert("Erreur produit : " + error.message); return; }
 
       if (imageFile) {
-        const { error: imgErr } = await supabase.storage
-          .from("prodoct-images")
+        const { error: imgErr } = await supabase.storage.from("prodoct-images")
           .upload(`${prod[0].id}_${imageFile.name}`, imageFile, { upsert: true });
-        if (imgErr) return alert("Erreur upload : " + imgErr.message);
+        if (imgErr) { alert("Erreur image : " + imgErr.message); return; }
 
-        await supabase.from("product_images").insert([
-          { product_id: prod[0].id, path: `prodoct-images/${prod[0].id}_${imageFile.name}` }
-        ]);
+        await supabase.from("product_images")
+          .insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
       }
 
       alert("✅ Produit ajouté !");
-      showSection("tab-products");
       loadProducts();
     });
-
-    // --- Charger Statistiques (mock au début) ---
-    async function loadStats() {
-      const { data: produits } = await supabase.from("products").select("*");
-      const { data: sessions } = await supabase.from("carts").select("id");
-
-      const nbProduits = produits?.length || 0;
-      const nbSessions = sessions?.length || 0;
-      const revenus = produits?.reduce((a, b) => a + (b.price || 0), 0) || 0;
-
-      document.getElementById("revenus").innerText = revenus + " XOF";
-      document.getElementById("nbProduits").innerText = nbProduits;
-      document.getElementById("nbSessions").innerText = nbSessions;
-
-      const ctx = document.getElementById("chartVentes").getContext("2d");
-      new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil"],
-          datasets: [{
-            label: "Ventes mensuelles (mock)",
-            data: [12000, 18000, 9000, 25000, 27000, 32000, 40000],
-            borderColor: "#22c55e",
-            fill: false,
-            tension: 0.3
-          }]
-        },
-        options: {
-          scales: {
-            x: { ticks: { color: "#ccc" } },
-            y: { ticks: { color: "#ccc" } }
-          },
-          plugins: { legend: { labels: { color: "#ccc" } } }
-        }
-      });
-    }
   </script>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+  <!-- Section Login -->
+  <div id="login-section" class="hidden flex flex-col items-center justify-center h-screen">
+    <h1 class="text-3xl font-bold mb-6">Admin E-commerce</h1>
+    <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
+      Se connecter avec GitHub
+    </button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 text-white min-h-screen p-6 flex flex-col justify-between">
+      <div>
+        <h2 class="text-2xl font-bold mb-8">🛍️ Admin</h2>
+        <nav class="space-y-4">
+          <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('products').scrollIntoView()">Produits</button>
+          <button class="block w-full text-left text-gray-200 hover:text-white" onclick="document.getElementById('orders').scrollIntoView()">Commandes</button>
+        </nav>
+      </div>
+      <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+        Déconnexion
+      </button>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 p-10 space-y-10">
+      <section id="products">
+        <h2 class="text-2xl font-bold mb-4">Produits</h2>
+        <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
+
+        <div class="bg-white rounded-xl shadow p-6 mt-10">
+          <h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
+          <input id="title" placeholder="Titre" class="border p-2 rounded w-full mb-3">
+          <input id="slug" placeholder="Slug" class="border p-2 rounded w-full mb-3">
+          <input id="description" placeholder="Description" class="border p-2 rounded w-full mb-3">
+          <input id="price" type="number" placeholder="Prix XOF" class="border p-2 rounded w-full mb-3">
+          <input id="image" type="file" class="border p-2 rounded w-full mb-3">
+          <button id="addProduct" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Ajouter</button>
+        </div>
+      </section>
+
+      <section id="orders">
+        <h2 class="text-2xl font-bold mb-4">Commandes</h2>
+        <p class="text-gray-500">📦 Cette section sera bientôt disponible.</p>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
 

@@ -6,6 +6,7 @@
   <title>Admin E-commerce</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       background-color: #0d1117;
@@ -23,9 +24,6 @@
       background: rgba(255, 255, 255, 0.1);
       transform: translateY(-2px);
     }
-    input, button {
-      border-radius: 8px;
-    }
     button {
       transition: all 0.3s ease;
     }
@@ -41,8 +39,9 @@
     <div>
       <h1 class="text-2xl font-bold mb-8">⚙️ Admin Shop</h1>
       <nav class="space-y-4">
-        <button id="tab-products" class="w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">🛍️ Produits</button>
-        <button id="tab-add" class="w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">➕ Ajouter</button>
+        <button id="tab-products" class="tab-btn w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">🛍️ Produits</button>
+        <button id="tab-add" class="tab-btn w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">➕ Ajouter</button>
+        <button id="tab-stats" class="tab-btn w-full text-left px-3 py-2 bg-[#21262d] rounded-lg hover:bg-[#30363d]">📊 Statistiques</button>
       </nav>
     </div>
     <button id="logoutBtn" class="bg-red-600 text-white py-2 rounded-lg mt-8 hover:bg-red-700">Se déconnecter</button>
@@ -75,6 +74,31 @@
         <button id="addProduct" class="w-full bg-green-600 py-2 text-white hover:bg-green-700">Ajouter le produit</button>
       </div>
     </div>
+
+    <!-- Section Statistiques -->
+    <div id="stats-section" class="hidden">
+      <h2 class="text-3xl font-bold mb-6">📊 Tableau de bord</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="card text-center">
+          <h3 class="text-gray-400 text-sm">Revenus totaux</h3>
+          <p id="revenus" class="text-2xl font-bold text-green-400">0 XOF</p>
+        </div>
+        <div class="card text-center">
+          <h3 class="text-gray-400 text-sm">Produits actifs</h3>
+          <p id="nbProduits" class="text-2xl font-bold text-blue-400">0</p>
+        </div>
+        <div class="card text-center">
+          <h3 class="text-gray-400 text-sm">Sessions visiteurs</h3>
+          <p id="nbSessions" class="text-2xl font-bold text-purple-400">0</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="text-xl font-semibold mb-4">Évolution des ventes (mock)</h3>
+        <canvas id="chartVentes" height="100"></canvas>
+      </div>
+    </div>
+
   </main>
 
   <script type="module">
@@ -85,24 +109,29 @@
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const loginDiv = document.getElementById("login");
-    const adminTabs = document.querySelector("aside");
     const productsSection = document.getElementById("products-section");
     const addSection = document.getElementById("add-section");
+    const statsSection = document.getElementById("stats-section");
 
     // Tabs
-    document.getElementById("tab-products").onclick = () => showSection("products");
-    document.getElementById("tab-add").onclick = () => showSection("add");
+    const tabs = {
+      "tab-products": productsSection,
+      "tab-add": addSection,
+      "tab-stats": statsSection
+    };
+    Object.keys(tabs).forEach(id => {
+      document.getElementById(id).onclick = () => showSection(id);
+    });
 
-    function showSection(tab) {
-      productsSection.classList.add("hidden");
-      addSection.classList.add("hidden");
-      if (tab === "products") productsSection.classList.remove("hidden");
-      if (tab === "add") addSection.classList.remove("hidden");
+    function showSection(id) {
+      Object.values(tabs).forEach(el => el.classList.add("hidden"));
+      tabs[id].classList.remove("hidden");
+      if (id === "tab-products") loadProducts();
+      if (id === "tab-stats") loadStats();
     }
 
     // --- Connexion GitHub ---
-    const loginBtn = document.getElementById("loginBtn");
-    loginBtn.addEventListener("click", async () => {
+    document.getElementById("loginBtn").addEventListener("click", async () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: { redirectTo: window.location.href }
@@ -110,7 +139,7 @@
       if (error) console.error("Erreur login GitHub :", error.message);
     });
 
-    // --- Vérification session ---
+    // --- Vérifier session ---
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       loginDiv.style.display = "none";
@@ -197,12 +226,49 @@
       }
 
       alert("✅ Produit ajouté !");
-      showSection("products");
+      showSection("tab-products");
       loadProducts();
     });
+
+    // --- Charger Statistiques (mock au début) ---
+    async function loadStats() {
+      const { data: produits } = await supabase.from("products").select("*");
+      const { data: sessions } = await supabase.from("carts").select("id");
+
+      const nbProduits = produits?.length || 0;
+      const nbSessions = sessions?.length || 0;
+      const revenus = produits?.reduce((a, b) => a + (b.price || 0), 0) || 0;
+
+      document.getElementById("revenus").innerText = revenus + " XOF";
+      document.getElementById("nbProduits").innerText = nbProduits;
+      document.getElementById("nbSessions").innerText = nbSessions;
+
+      const ctx = document.getElementById("chartVentes").getContext("2d");
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil"],
+          datasets: [{
+            label: "Ventes mensuelles (mock)",
+            data: [12000, 18000, 9000, 25000, 27000, 32000, 40000],
+            borderColor: "#22c55e",
+            fill: false,
+            tension: 0.3
+          }]
+        },
+        options: {
+          scales: {
+            x: { ticks: { color: "#ccc" } },
+            y: { ticks: { color: "#ccc" } }
+          },
+          plugins: { legend: { labels: { color: "#ccc" } } }
+        }
+      });
+    }
   </script>
 </body>
 </html>
+
 
 
 

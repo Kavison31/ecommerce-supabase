@@ -28,13 +28,19 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
 document.getElementById("logoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); location.reload(); });
 
 // --- Produits ---
+let allProducts = [];
+
 async function loadProducts() {
     const { data: products, error } = await supabase.from("products").select("*").order("id", { ascending: false });
+    allProducts = products || [];
+    displayProducts(allProducts);
+}
+
+function displayProducts(products) {
     const container = document.getElementById("products-container");
     container.innerHTML = "";
-    if (error) { container.innerHTML = `<p class='text-red-500'>${error.message}</p>`; return; }
 
-    for (const p of products) {
+    products.forEach(async p => {
         const { data: imgs } = await supabase.from("product_images").select("path").eq("product_id", p.id).limit(1);
         const imgUrl = imgs && imgs[0] 
             ? `${SUPABASE_URL}/storage/v1/object/public/prodoct-images/${imgs[0].path}` 
@@ -86,10 +92,8 @@ async function loadProducts() {
             const newPrice = parseInt(card.querySelector(".editPrice").innerText);
             const imageFile = card.querySelector(".editImage").files[0];
 
-            // Update produit
             await supabase.from("products").update({ title: newTitle, description: newDesc, price: newPrice }).eq("id", p.id);
 
-            // Update image si changé
             if (imageFile) {
                 await supabase.storage.from("prodoct-images")
                     .upload(`${p.id}_${imageFile.name}`, imageFile, { upsert: true });
@@ -99,8 +103,14 @@ async function loadProducts() {
 
             loadProducts();
         });
-    }
+    });
 }
+
+// Search
+document.getElementById("searchInput").addEventListener("input", (e) => {
+    const filtered = allProducts.filter(p => p.title.toLowerCase().includes(e.target.value.toLowerCase()));
+    displayProducts(filtered);
+});
 
 // Ajouter produit
 document.getElementById("addProduct").addEventListener("click", async () => {
@@ -124,6 +134,14 @@ document.getElementById("addProduct").addEventListener("click", async () => {
         if (!imgErr)
             await supabase.from("product_images").insert([{ product_id: prod[0].id, path: `${prod[0].id}_${imageFile.name}` }]);
     }
+
+    // Réinitialiser champs
+    document.getElementById("title").value = "";
+    document.getElementById("slug").value = "";
+    document.getElementById("description").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("image").value = "";
+    document.getElementById("category").value = "";
 
     alert("✅ Produit ajouté !");
     loadProducts();
@@ -159,11 +177,14 @@ document.getElementById("addCat").addEventListener("click", async () => {
 </script>
 </head>
 <body class="bg-gray-100 min-h-screen">
+
+<!-- Login -->
 <div id="login-section" class="hidden flex flex-col items-center justify-center h-screen">
     <h1 class="text-3xl font-bold mb-6">Admin E-commerce</h1>
     <button id="loginBtn" class="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-700">Se connecter avec GitHub</button>
 </div>
 
+<!-- Dashboard -->
 <div id="dashboard" class="hidden flex">
 <aside class="w-64 bg-gray-900 text-white min-h-screen p-6 flex flex-col justify-between">
     <div>
@@ -177,9 +198,14 @@ document.getElementById("addCat").addEventListener("click", async () => {
 </aside>
 
 <main class="flex-1 p-10 space-y-10">
+
 <section id="products">
-<h2 class="text-2xl font-bold mb-4">Produits</h2>
+<h2 class="text-2xl font-bold mb-4 flex justify-between items-center">
+    Produits
+    <input id="searchInput" placeholder="Rechercher..." class="border p-2 rounded w-1/3">
+</h2>
 <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
+
 <div class="bg-white rounded-xl shadow p-6 mt-10">
 <h3 class="text-xl font-semibold mb-4">Ajouter un produit</h3>
 <select id="category" class="border p-2 rounded w-full mb-3"></select>
@@ -200,10 +226,13 @@ document.getElementById("addCat").addEventListener("click", async () => {
 <ul id="categories-list" class="mt-4"></ul>
 </div>
 </section>
+
 </main>
 </div>
+
 </body>
 </html>
+
 
 
 

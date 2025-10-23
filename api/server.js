@@ -1,78 +1,139 @@
+// api/server.js
 import { createClient } from "@supabase/supabase-js";
 import multer from "multer";
 
-// --- Supabase ---
 const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// --- Multer pour gérer upload fichiers ---
+// --- Configuration Multer (upload mémoire)
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).array("images");
 
-// --- Handler pour Vercel ---
 export default async function handler(req, res) {
   try {
-    const { method } = req;
-    const url = req.url;
+    const { method, url } = req;
 
-    // Produits
+    // --------------------------
+    // PRODUITS
+    // --------------------------
     if (url.startsWith("/api/products")) {
       if (method === "GET") {
-        // Lire tous les produits avec images
-        const { data: products, error } = await supabase
+        const { data, error } = await supabase
           .from("products")
-          .select(`*, product_images(path)`)
+          .select(`*, product_images(path), product_variants(*)`)
           .order("id", { ascending: false });
         if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json(products);
+        return res.status(200).json(data);
       }
 
       if (method === "POST") {
-        // Upload produit + images
         upload(req, res, async (err) => {
           if (err) return res.status(500).json({ error: err.message });
+          const { title, slug, description, price, category_id, subcategory_id, collection_id, variants } = req.body;
 
-          const { title, slug, description, price, category_id, subcategory_id, collection_id } = req.body;
+          if (!title || !price) return res.status(400).json({ error: "Titre et prix sont requis." });
 
-          if (!title || !price) return res.status(400).json({ error: "Title et price requis" });
+          // Créer le produit
+          const { data: prod, error: prodErr } = await supabase
+            .from("products")
+            .insert([
+              {
+                title,
+                slug,
+                description,
+                price: parseInt(price),
+                published: true,
+                category_id: category_id || null,
+                subcategory_id: subcategory_id || null,
+                collection_id: collection_id || null,
+              },
+            ])
+            .select()
+            .single();
 
-          // Insert produit
-          const { data: prod, error: prodErr } = await supabase.from("products")
-            .insert([{ title, slug, description, price: parseInt(price), published: true, category_id: category_id || null, subcategory_id: subcategory_id || null, collection_id: collection_id || null }])
-            .select();
           if (prodErr) return res.status(500).json({ error: prodErr.message });
 
-          // Upload images
-          if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-              const filename = `${prod[0].id}_${Date.now()}_${file.originalname}`;
-              const { error: uploadErr } = await supabase.storage.from("prodoct-images").upload(filename, file.buffer, { upsert: true });
-              if (uploadErr) console.error("Erreur upload image:", uploadErr.message);
-              else await supabase.from("product_images").insert([{ product_id: prod[0].id, path: filename }]);
+          // Variantes
+          if (variants) {
+            try {
+              const parsed = JSON.parse(variants);
+              for (const variant of parsed) {
+                await supabase.from("product_variants").insert([
+                  {
+                    product_id: prod.id,
+                    name: variant.name,
+                    sku: variant.sku,
+                    additional_price: variant.additional_price || 0,
+                    stock: variant.stock || 0,
+                  },
+                ]);
+              }
+            } catch {
+              console.warn("Erreur parsing variantes");
             }
           }
 
-          return res.status(200).json({ success: true, product: prod[0] });
+          // Upload images
+          if (req.files?.length > 0) {
+            for (const file of req.files) {
+              const filename = `${prod.id}_${Date.now()}_${file.originalname}`;
+              const { error: uploadErr } = await supabase.storage
+                .from("product-images")
+                .upload(filename, file.buffer, { upsert: true });
+              if (!uploadErr)
+                await supabase.from("product_images").insert([{ product_id: prod.id, path: filename }]);
+            }
+          }
+
+          return res.status(200).json({ success: true, product: prod });
         });
         return;
       }
 
       if (method === "PUT") {
-        // Modifier produit
         upload(req, res, async (err) => {
           if (err) return res.status(500).json({ error: err.message });
-          const { id, title, slug, description, price, category_id, subcategory_id, collection_id } = req.body;
-          if (!id) return res.status(400).json({ error: "ID produit requis" });
 
-          await supabase.from("products").update({ title, slug, description, price: parseInt(price), category_id: category_id || null, subcategory_id: subcategory_id || null, collection_id: collection_id || null }).eq("id", id);
+          const { id, title, slug, description, price, category_id, subcategory_id, collection_id, variants } = req.body;
+          if (!id) return res.status(400).json({ error: "ID requis." });
 
-          if (req.files && req.files.length > 0) {
+          await supabase.from("products").update({
+            title,
+            slug,
+            description,
+            price: parseInt(price),
+            category_id: category_id || null,
+            subcategory_id: subcategory_id || null,
+            collection_id: collection_id || null,
+          }).eq("id", id);
+
+          // Variantes (remplacer)
+          if (variants) {
+            const parsed = JSON.parse(variants);
+            await supabase.from("product_variants").delete().eq("product_id", id);
+            for (const variant of parsed) {
+              await supabase.from("product_variants").insert([
+                {
+                  product_id: id,
+                  name: variant.name,
+                  sku: variant.sku,
+                  additional_price: variant.additional_price || 0,
+                  stock: variant.stock || 0,
+                },
+              ]);
+            }
+          }
+
+          // Upload images
+          if (req.files?.length > 0) {
             for (const file of req.files) {
               const filename = `${id}_${Date.now()}_${file.originalname}`;
-              const { error: uploadErr } = await supabase.storage.from("prodoct-images").upload(filename, file.buffer, { upsert: true });
-              if (uploadErr) console.error("Erreur upload image:", uploadErr.message);
-              else await supabase.from("product_images").insert([{ product_id: id, path: filename }]);
+              const { error: uploadErr } = await supabase.storage
+                .from("product-images")
+                .upload(filename, file.buffer, { upsert: true });
+              if (!uploadErr)
+                await supabase.from("product_images").insert([{ product_id: id, path: filename }]);
             }
           }
 
@@ -83,13 +144,15 @@ export default async function handler(req, res) {
 
       if (method === "DELETE") {
         const { id } = req.query;
-        if (!id) return res.status(400).json({ error: "ID requis" });
+        if (!id) return res.status(400).json({ error: "ID requis." });
         await supabase.from("products").delete().eq("id", id);
         return res.status(200).json({ success: true });
       }
     }
 
-    // Categories / Subcategories / Collections
+    // --------------------------
+    // CATÉGORIES
+    // --------------------------
     if (url.startsWith("/api/categories")) {
       if (method === "GET") {
         const { data, error } = await supabase.from("categories").select("*").order("id");
@@ -98,18 +161,21 @@ export default async function handler(req, res) {
       }
       if (method === "POST") {
         const { name, slug } = req.body;
-        if (!name) return res.status(400).json({ error: "Nom requis" });
+        if (!name) return res.status(400).json({ error: "Nom requis." });
         await supabase.from("categories").insert([{ name, slug: slug || name.toLowerCase().replace(/\s+/g, "-") }]);
         return res.status(200).json({ success: true });
       }
       if (method === "DELETE") {
         const { id } = req.query;
-        if (!id) return res.status(400).json({ error: "ID requis" });
+        if (!id) return res.status(400).json({ error: "ID requis." });
         await supabase.from("categories").delete().eq("id", id);
         return res.status(200).json({ success: true });
       }
     }
 
+    // --------------------------
+    // SOUS-CATÉGORIES
+    // --------------------------
     if (url.startsWith("/api/subcategories")) {
       if (method === "GET") {
         const { data, error } = await supabase.from("subcategories").select("*").order("id");
@@ -118,18 +184,22 @@ export default async function handler(req, res) {
       }
       if (method === "POST") {
         const { name, slug, category_id } = req.body;
-        if (!name || !category_id) return res.status(400).json({ error: "Nom et category_id requis" });
+        if (!name || !category_id)
+          return res.status(400).json({ error: "Nom et catégorie requis." });
         await supabase.from("subcategories").insert([{ name, slug: slug || name.toLowerCase().replace(/\s+/g, "-"), category_id }]);
         return res.status(200).json({ success: true });
       }
       if (method === "DELETE") {
         const { id } = req.query;
-        if (!id) return res.status(400).json({ error: "ID requis" });
+        if (!id) return res.status(400).json({ error: "ID requis." });
         await supabase.from("subcategories").delete().eq("id", id);
         return res.status(200).json({ success: true });
       }
     }
 
+    // --------------------------
+    // COLLECTIONS
+    // --------------------------
     if (url.startsWith("/api/collections")) {
       if (method === "GET") {
         const { data, error } = await supabase.from("collections").select("*").order("id");
@@ -138,22 +208,24 @@ export default async function handler(req, res) {
       }
       if (method === "POST") {
         const { name, slug } = req.body;
-        if (!name) return res.status(400).json({ error: "Nom requis" });
+        if (!name) return res.status(400).json({ error: "Nom requis." });
         await supabase.from("collections").insert([{ name, slug: slug || name.toLowerCase().replace(/\s+/g, "-") }]);
         return res.status(200).json({ success: true });
       }
       if (method === "DELETE") {
         const { id } = req.query;
-        if (!id) return res.status(400).json({ error: "ID requis" });
+        if (!id) return res.status(400).json({ error: "ID requis." });
         await supabase.from("collections").delete().eq("id", id);
         return res.status(200).json({ success: true });
       }
     }
 
-    res.status(404).json({ error: "Route non trouvée" });
+    // Aucune route correspondante
+    return res.status(404).json({ error: "Route non trouvée." });
   } catch (error) {
-    console.error(error);
+    console.error("Erreur serveur:", error);
     res.status(500).json({ error: error.message });
   }
 }
+
 

@@ -1,208 +1,727 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Administration - E-commerce</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin • E-commerce</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- SweetAlert2 pour modales/alerts (optionnel mais pro) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <style>
-    body {
-      background-color: #f8fafc;
-      font-family: 'Inter', sans-serif;
-    }
-    .hidden { display: none; }
+    .toast { position: fixed; right: 16px; bottom: 16px; z-index:60; }
+    .dragover { outline: 3px dashed rgba(34,197,94,0.6); }
+    .thumb { width:100%; height:96px; object-fit:cover; border-radius:6px; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
-  <!-- Header -->
-  <header class="bg-gray-900 text-white shadow-lg p-4 flex justify-between items-center">
-    <h1 class="text-2xl font-bold">🛠️ Panneau d’administration</h1>
-    <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Déconnexion</button>
-  </header>
+  <div class="min-h-screen flex">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-gray-900 text-white p-6 hidden md:block">
+      <h1 class="text-2xl font-bold mb-6">🛍 Admin Shop</h1>
 
-  <!-- Main -->
-  <main class="flex-1 p-6">
-    <!-- Section connexion -->
-    <section id="login-section" class="max-w-md mx-auto bg-white rounded-xl shadow-md p-6 mt-8">
-      <h2 class="text-xl font-semibold mb-4">Connexion administrateur</h2>
-      <form id="loginForm" class="flex flex-col gap-3">
-        <input type="email" id="email" placeholder="Email" required class="border p-2 rounded" />
-        <input type="password" id="password" placeholder="Mot de passe" required class="border p-2 rounded" />
-        <button type="submit" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Se connecter</button>
-      </form>
-    </section>
+      <nav class="space-y-3 text-sm">
+        <button id="nav-products" class="w-full text-left hover:text-green-300">Produits</button>
+        <button id="nav-categories" class="w-full text-left hover:text-green-300">Catégories</button>
+        <button id="nav-subcats" class="w-full text-left hover:text-green-300">Sous-catégories</button>
+        <button id="nav-collections" class="w-full text-left hover:text-green-300">Collections</button>
+      </nav>
 
-    <!-- Section admin -->
-    <section id="admin-section" class="hidden">
-      <!-- Actions -->
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold">Gestion du catalogue</h2>
-        <button id="addProductBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-          ➕ Ajouter un produit
-        </button>
+      <div class="mt-6">
+        <button id="loginEmailBtn" class="w-full bg-indigo-600 py-2 rounded mb-2">Se connecter (email)</button>
+        <button id="loginGithubBtn" class="w-full bg-gray-700 py-2 rounded mb-2">Se connecter (GitHub)</button>
+        <button id="logoutBtn" class="w-full bg-red-600 py-2 rounded">Déconnexion</button>
       </div>
 
-      <!-- Onglets -->
-      <div class="flex flex-wrap gap-3 mb-8">
-        <button data-tab="products" class="tab-btn bg-blue-600 text-white px-4 py-2 rounded">Produits</button>
-        <button data-tab="categories" class="tab-btn bg-gray-200 px-4 py-2 rounded">Catégories</button>
-        <button data-tab="subcategories" class="tab-btn bg-gray-200 px-4 py-2 rounded">Sous-catégories</button>
-        <button data-tab="collections" class="tab-btn bg-gray-200 px-4 py-2 rounded">Collections</button>
+      <div class="mt-6 text-xs text-gray-400">
+        <p>Session admin: <span id="adminState">—</span></p>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-6">
+      <!-- Header mobile -->
+      <div class="md:hidden mb-4 flex items-center justify-between">
+        <h2 class="text-xl font-bold">Admin • E-commerce</h2>
+        <div class="flex gap-2">
+          <button id="m_loginEmailBtn" class="bg-indigo-600 text-white px-3 py-1 rounded">Email</button>
+          <button id="m_loginGithubBtn" class="bg-gray-700 text-white px-3 py-1 rounded">GitHub</button>
+        </div>
       </div>
 
-      <!-- Contenu dynamique -->
-      <div id="tab-content" class="bg-white rounded-xl shadow-md p-6">
-        <p class="text-gray-600">Chargement du contenu...</p>
+      <!-- Top actions -->
+      <header class="flex items-center justify-between mb-6">
+        <div>
+          <h2 id="pageTitle" class="text-2xl font-bold">Produits</h2>
+          <p class="text-sm text-gray-600">Interface d'administration • CRUD complet</p>
+        </div>
+
+        <div class="flex gap-3 items-center">
+          <input id="searchInput" placeholder="Rechercher produit..." class="border rounded px-3 py-2 w-64" />
+          <select id="categoryFilter" class="border rounded px-3 py-2">
+            <option value="">Toutes catégories</option>
+          </select>
+          <button id="newProductBtn" class="bg-green-600 text-white px-4 py-2 rounded">+ Nouveau</button>
+        </div>
+      </header>
+
+      <!-- Panels -->
+      <section id="panel-products">
+        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+
+        <div class="flex items-center justify-between mt-6">
+          <div>
+            <button id="prevPage" class="px-3 py-1 border rounded mr-2">Précédent</button>
+            <button id="nextPage" class="px-3 py-1 border rounded">Suivant</button>
+          </div>
+          <div class="text-sm text-gray-600">
+            <span id="pageInfo">Page 1</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-categories" class="hidden">
+        <div class="grid grid-cols-2 gap-6">
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">Créer une catégorie</h3>
+            <input id="catName" placeholder="Nom catégorie" class="border p-2 rounded w-full mb-2">
+            <button id="addCat" class="bg-blue-600 text-white px-4 py-2 rounded">Ajouter</button>
+          </div>
+
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">Catégories</h3>
+            <ul id="categoriesList" class="space-y-2 text-sm"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-subcats" class="hidden">
+        <div class="grid grid-cols-2 gap-6">
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">Créer une sous-catégorie</h3>
+            <select id="catForSub" class="border p-2 rounded w-full mb-2"></select>
+            <input id="subName" placeholder="Nom sous-catégorie" class="border p-2 rounded w-full mb-2">
+            <button id="addSub" class="bg-indigo-600 text-white px-4 py-2 rounded">Ajouter</button>
+          </div>
+
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">Sous-catégories</h3>
+            <ul id="subcatsList" class="space-y-2 text-sm"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-collections" class="hidden">
+        <div class="grid grid-cols-2 gap-6">
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">Créer une collection</h3>
+            <input id="colName" placeholder="Nom collection" class="border p-2 rounded w-full mb-2">
+            <button id="addCol" class="bg-pink-600 text-white px-4 py-2 rounded">Ajouter</button>
+          </div>
+
+          <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="font-semibold mb-3">Collections</h3>
+            <ul id="colsList" class="space-y-2 text-sm"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Product Modal -->
+  <div id="productModal" class="fixed inset-0 hidden items-center justify-center bg-black/40 z-50">
+    <div class="bg-white rounded-lg w-[95%] max-w-6xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modalTitle" class="text-xl font-semibold">Nouveau produit</h3>
+        <div class="flex gap-2 items-center">
+          <button id="closeModal" class="text-gray-500">✖</button>
+        </div>
       </div>
-    </section>
-  </main>
 
-  <!-- Pied -->
-  <footer class="bg-gray-900 text-white text-center p-4">
-    <p class="text-sm">© 2025 — Administration e-commerce moderne</p>
-  </footer>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Left: form -->
+        <div>
+          <label class="block mb-1">Titre</label>
+          <input id="f_title" class="border p-2 rounded w-full mb-2" />
+          <label class="block mb-1">Slug</label>
+          <input id="f_slug" class="border p-2 rounded w-full mb-2" />
+          <label class="block mb-1">Prix (XOF)</label>
+          <input id="f_price" type="number" class="border p-2 rounded w-full mb-2" />
+          <label class="block mb-1">Description</label>
+          <textarea id="f_description" rows="4" class="border p-2 rounded w-full mb-2"></textarea>
 
-  <!-- Scripts -->
+          <label class="block mb-1">Catégorie</label>
+          <select id="f_category" class="border p-2 rounded w-full mb-2"></select>
+
+          <label class="block mb-1">Sous-catégorie</label>
+          <select id="f_subcategory" class="border p-2 rounded w-full mb-2"></select>
+
+          <label class="block mb-1">Collection</label>
+          <select id="f_collection" class="border p-2 rounded w-full mb-2"></select>
+
+          <div class="mt-3 flex gap-3">
+            <button id="saveProduct" class="bg-green-600 text-white px-4 py-2 rounded">Sauvegarder</button>
+            <button id="saveClose" class="bg-blue-600 text-white px-4 py-2 rounded">Sauvegarder & fermer</button>
+            <button id="resetForm" class="border px-4 py-2 rounded">Réinitialiser</button>
+          </div>
+        </div>
+
+        <!-- Right: images + variants -->
+        <div>
+          <label class="block mb-2">Galerie d'images (drag & drop)</label>
+          <div id="dropZone" class="border-dashed border-2 border-gray-300 rounded p-4 mb-3 text-center relative">
+            <div class="text-sm text-gray-500">Déposez des images ici ou cliquez pour choisir</div>
+            <input id="f_images" type="file" accept="image/*" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+          </div>
+          <div id="thumbs" class="grid grid-cols-3 gap-3 mb-4"></div>
+
+          <hr class="my-4" />
+          <div>
+            <h4 class="font-semibold mb-2">Variantes</h4>
+            <div class="flex gap-2 mb-2">
+              <input id="v_name" placeholder="Nom variante (ex: Rouge - M)" class="border p-2 rounded w-2/3" />
+              <input id="v_price" placeholder="Prix (optionnel)" class="border p-2 rounded w-1/3" />
+            </div>
+            <div class="flex gap-2 mb-2">
+              <input id="v_sku" placeholder="SKU (optionnel)" class="border p-2 rounded w-1/2" />
+              <input id="v_stock" placeholder="Stock" type="number" class="border p-2 rounded w-1/2" />
+            </div>
+            <div class="mb-2">
+              <input id="v_attributes" placeholder='Attributs JSON (ex: {"couleur":"rouge"})' class="border p-2 rounded w-full" />
+            </div>
+            <div class="flex gap-2">
+              <button id="addVariantBtn" class="bg-indigo-600 text-white px-3 py-1 rounded">Ajouter</button>
+              <button id="clearVariantsBtn" class="border px-3 py-1 rounded">Vider</button>
+            </div>
+
+            <ul id="variantsList" class="mt-3 space-y-2 text-sm"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toastArea" class="toast space-y-2 right-6 bottom-6"></div>
+
+  <!-- Supabase UMD (compatible CDN loading) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.1/dist/umd/supabase.js"></script>
 
   <script>
+  (function(){
+    // ===== CONFIG - remplace si besoin (laisser ANON key côté client) =====
     const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9zIjoibWVsaW9yIiwiaWF0IjoxNzYwNjI2NzI2LCJleHAiOjIwNzYyMDI3MjZ9.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU";
+    const BUCKET = "prodoct-images";
+    const API_BASE = "/api"; // endpoints serverless (create-bucket, upload, delete-file)
 
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const loginSection = document.getElementById('login-section');
-    const adminSection = document.getElementById('admin-section');
-    const loginForm = document.getElementById('loginForm');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabContent = document.getElementById('tab-content');
+    // helpers / UI shortcuts
+    const $ = id => document.getElementById(id);
+    function toast(msg, type="info"){
+      const el = document.createElement("div");
+      el.className = "bg-white p-3 rounded shadow";
+      el.innerText = msg;
+      $("toastArea").appendChild(el);
+      setTimeout(()=> el.remove(), 3500);
+    }
+    function safeFileName(name){
+      return name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\\-\\.]/g,'');
+    }
+    function encodePathForUrl(path){ return path.split("/").map(encodeURIComponent).join("/"); }
 
-    // --- Vérifie si admin déjà connecté
-    async function checkAuth() {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (user) {
-        loginSection.classList.add('hidden');
-        adminSection.classList.remove('hidden');
-        loadTab('products');
-      } else {
-        loginSection.classList.remove('hidden');
-        adminSection.classList.add('hidden');
+    // state
+    let allProducts = [];
+    let page = 1, perPage = 12, totalPages = 1;
+    let editingProductId = null;
+    let stagedVariants = []; // variants in modal (not yet saved to DB)
+
+    // UI init
+    $("nav-products").addEventListener("click", ()=> showPanel("products"));
+    $("nav-categories").addEventListener("click", ()=> showPanel("categories"));
+    $("nav-subcats").addEventListener("click", ()=> showPanel("subcats"));
+    $("nav-collections").addEventListener("click", ()=> showPanel("collections"));
+    $("newProductBtn").addEventListener("click", ()=> openProductModal(null));
+    $("searchInput").addEventListener("input", ()=> { page = 1; refreshProducts(); });
+    $("categoryFilter").addEventListener("change", ()=> { page = 1; refreshProducts(); });
+    $("prevPage").addEventListener("click", ()=> { if(page>1){ page--; refreshProducts(); }});
+    $("nextPage").addEventListener("click", ()=> { if(page<totalPages){ page++; refreshProducts(); }});
+
+    // mobile login buttons
+    document.getElementById("m_loginEmailBtn").addEventListener("click", ()=> $("loginEmailBtn").click());
+    document.getElementById("m_loginGithubBtn").addEventListener("click", ()=> $("loginGithubBtn").click());
+
+    // auth UI
+    $("loginEmailBtn").addEventListener("click", async ()=>{
+      const email = prompt("Email admin:");
+      const pass = prompt("Mot de passe:");
+      if(!email||!pass) return;
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+      if(error) return alert("Erreur login: "+error.message);
+      toast("Connecté");
+      initAfterAuth();
+    });
+    $("loginGithubBtn").addEventListener("click", async ()=>{
+      const { error } = await supabaseClient.auth.signInWithOAuth({ provider: "github", options:{ redirectTo: window.location.href }});
+      if(error) return alert("Erreur oauth: "+error.message);
+    });
+    $("logoutBtn").addEventListener("click", async ()=>{ await supabaseClient.auth.signOut(); location.reload(); });
+
+    // dropzone & thumbs
+    const dropZone = $("dropZone"), f_images = $("f_images"), thumbs = $("thumbs");
+    dropZone.addEventListener("click", ()=> f_images.click());
+    dropZone.addEventListener("dragover", e=>{ e.preventDefault(); dropZone.classList.add("dragover"); });
+    dropZone.addEventListener("dragleave", ()=> dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", async e=>{ e.preventDefault(); dropZone.classList.remove("dragover"); await processFiles([...e.dataTransfer.files]); });
+    f_images.addEventListener("change", async e=> { await processFiles([...e.target.files]); f_images.value=""; });
+
+    async function processFiles(files){
+      for(const file of files.filter(f=> f.type.startsWith("image/"))){
+        const reader = new FileReader();
+        reader.onload = ()=> {
+          const url = reader.result;
+          const div = document.createElement("div");
+          div.className = "relative";
+          div.innerHTML = `
+            <img src="${url}" class="thumb">
+            <button class="delThumb absolute top-1 right-1 bg-white/80 rounded-full p-1 text-sm">✖</button>
+          `;
+          div._file = file;
+          thumbs.prepend(div);
+          div.querySelector(".delThumb").addEventListener("click", ()=> div.remove());
+        };
+        reader.readAsDataURL(file);
       }
     }
 
-    // --- Connexion
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
+    // ensure bucket exists (call serverless endpoint idempotent)
+    (async function ensureBucket(){
+      try {
+        await fetch(API_BASE + "/create-bucket", { method: "POST" });
+        console.log("create-bucket called");
+      } catch(e){ console.warn("create-bucket failed", e); }
+    })();
 
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) {
-        Swal.fire('Erreur', 'Email ou mot de passe incorrect.', 'error');
-      } else {
-        Swal.fire('Succès', 'Connexion réussie !', 'success');
-        checkAuth();
-      }
-    });
-
-    // --- Déconnexion
-    logoutBtn.addEventListener('click', async () => {
-      await supabaseClient.auth.signOut();
-      Swal.fire('Déconnecté', '', 'info');
-      checkAuth();
-    });
-
-    // --- Gestion des onglets
-    tabButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        tabButtons.forEach(b => b.classList.remove('bg-blue-600', 'text-white'));
-        btn.classList.add('bg-blue-600', 'text-white');
-        loadTab(btn.dataset.tab);
-      });
-    });
-
-    // --- Charger contenu d’un onglet
-    async function loadTab(tab) {
-      tabContent.innerHTML = `<p class="text-gray-600">Chargement de ${tab}...</p>`;
-      switch(tab) {
-        case 'products': await loadProducts(); break;
-        case 'categories': await loadCategories(); break;
-        case 'subcategories': await loadSubCategories(); break;
-        case 'collections': await loadCollections(); break;
-      }
+    // init after auth
+    async function initAfterAuth(){
+      await loadCategories(); await loadSubcats(); await loadCollections();
+      await loadProducts();
+      const { data:{ user } = {} } = await supabaseClient.auth.getUser();
+      $("adminState").innerText = user ? (user.email || user.id) : "—";
     }
 
-    // --- Chargement dynamique
-    async function loadProducts() {
-      const { data, error } = await supabaseClient.from('products').select('*');
-      if (error) {
-        tabContent.innerHTML = `<p class="text-red-500">Erreur de chargement : ${error.message}</p>`;
-        return;
-      }
+    (async function boot(){
+      const { data:{ session } = {} } = await supabaseClient.auth.getSession();
+      if(session) await initAfterAuth();
+      showPanel("products");
+    })();
 
-      let html = `
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-semibold">Produits (${data.length})</h3>
-          <button class="bg-green-500 text-white px-4 py-2 rounded" id="newProductBtn">+ Ajouter</button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      `;
+    // ===== Products CRUD =====
+    async function loadProducts(){
+      const { data, error } = await supabaseClient.from("products").select("*").order("id", { ascending: false });
+      if(error){ toast("Erreur chargement produits: "+error.message, "err"); return; }
+      allProducts = data || [];
+      page = 1; totalPages = Math.max(1, Math.ceil(allProducts.length / perPage));
+      refreshProducts();
+    }
 
-      data.forEach(p => {
-        html += `
-          <div class="border rounded-lg p-4 bg-gray-50 shadow hover:shadow-lg transition">
-            <h4 class="font-bold mb-2">${p.title}</h4>
-            <p class="text-sm mb-2">${p.description || 'Aucune description'}</p>
-            <p class="text-blue-600 font-semibold mb-3">${p.price} ${p.currency}</p>
+    async function refreshProducts(){
+      const q = $("searchInput").value.trim().toLowerCase();
+      const cat = $("categoryFilter").value;
+      let list = allProducts.slice();
+      if(q) list = list.filter(p => (p.title||"").toLowerCase().includes(q));
+      if(cat) list = list.filter(p => String(p.category_id) === String(cat));
+      totalPages = Math.max(1, Math.ceil(list.length / perPage));
+      const start = (page-1)*perPage;
+      const slice = list.slice(start, start+perPage);
+      $("pageInfo").innerText = `Page ${page} / ${totalPages} • ${list.length} produits`;
+      renderProducts(slice);
+    }
+
+    async function renderProducts(products){
+      const container = $("productsGrid");
+      container.innerHTML = "";
+      for(const p of products){
+        const { data: imgs } = await supabaseClient.from("product_images").select("path").eq("product_id", p.id).order("id").limit(1);
+        const imgPath = imgs && imgs[0] && imgs[0].path;
+        const imgUrl = imgPath ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodePathForUrl(imgPath)}` : "https://via.placeholder.com/300x200?text=No+image";
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-lg shadow p-4 flex flex-col";
+        card.innerHTML = `
+          <div class="h-40 mb-3 flex items-center justify-center overflow-hidden rounded bg-gray-50">
+            <img src="${imgUrl}" alt="${p.title}" class="object-cover w-full h-full">
+          </div>
+          <h4 class="font-semibold">${p.title}</h4>
+          <p class="text-sm text-gray-500 mb-3">${p.description? p.description.slice(0,80):""}</p>
+          <div class="flex items-center justify-between mt-auto">
+            <div class="text-green-600 font-bold">${p.price} XOF</div>
             <div class="flex gap-2">
-              <button class="edit-btn bg-yellow-400 px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
-              <button class="delete-btn bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Supprimer</button>
+              <button class="editProduct bg-blue-500 text-white px-3 py-1 rounded" data-id="${p.id}">Modifier</button>
+              <button class="delProduct bg-red-500 text-white px-3 py-1 rounded" data-id="${p.id}">Suppr</button>
             </div>
           </div>
         `;
+        container.appendChild(card);
+
+        card.querySelector(".delProduct").addEventListener("click", async ()=>{
+          if(!confirm("Supprimer ce produit et ses images ?")) return;
+          // delete product images records and files via serverless endpoint to use service role safely
+          const { data: imgsAll } = await supabaseClient.from("product_images").select("path").eq("product_id", p.id);
+          if(imgsAll && imgsAll.length){
+            const paths = imgsAll.map(i => i.path);
+            try {
+              const res = await fetch(API_BASE + "/delete-file", {
+                method: "POST",
+                headers: { "Content-Type":"application/json" },
+                body: JSON.stringify({ paths })
+              });
+              const json = await res.json();
+              if(json.error) console.warn("delete-file error", json);
+            } catch(e){ console.warn("delete-file failed", e); }
+            await supabaseClient.from("product_images").delete().eq("product_id", p.id);
+          }
+          const { error } = await supabaseClient.from("products").delete().eq("id", p.id);
+          if(error) return toast("Erreur suppression: "+error.message,"err");
+          toast("Produit supprimé");
+          loadProducts();
+        });
+
+        card.querySelector(".editProduct").addEventListener("click", ()=> openProductModal(p.id));
+      }
+    }
+
+    // ===== Product Modal: open / close / reset
+    $("saveProduct").addEventListener("click", ()=> saveProduct(false));
+    $("saveClose").addEventListener("click", ()=> saveProduct(true));
+    $("resetForm").addEventListener("click", resetForm);
+    $("closeModal").addEventListener("click", closeModal);
+
+    async function openProductModal(productId=null){
+      editingProductId = productId;
+      $("productModal").classList.remove("hidden");
+      $("productModal").style.display = "flex";
+      thumbs.innerHTML = "";
+      stagedVariants = [];
+      $("variantsList").innerHTML = "";
+
+      // load categories/subcats/collections
+      await loadCategories(); await loadSubcats(); await loadCollections();
+      // fill modal selects
+      const cats = (await supabaseClient.from("categories").select("*").order("id")).data||[];
+      const subs = (await supabaseClient.from("subcategories").select("*").order("id")).data||[];
+      const cols = (await supabaseClient.from("collections").select("*").order("id")).data||[];
+      $("f_category").innerHTML = "<option value=''>Aucune</option>";
+      $("f_subcategory").innerHTML = "<option value=''>Aucune</option>";
+      $("f_collection").innerHTML = "<option value=''>Aucune</option>";
+      cats.forEach(c=> $("f_category").innerHTML += `<option value="${c.id}">${c.name}</option>`);
+      subs.forEach(s=> $("f_subcategory").innerHTML += `<option value="${s.id}">${s.name}</option>`);
+      cols.forEach(c=> $("f_collection").innerHTML += `<option value="${c.id}">${c.name}</option>`);
+
+      if(!productId){
+        $("modalTitle").innerText = "Nouveau produit"; resetForm(); return;
+      }
+
+      $("modalTitle").innerText = "Modifier produit";
+      const { data:[prod] = [], error } = await supabaseClient.from("products").select("*").eq("id", productId).limit(1);
+      if(error || !prod){ toast("Erreur chargement produit" + (error?": "+error.message:""), "err"); return; }
+      $("f_title").value = prod.title || "";
+      $("f_slug").value = prod.slug || "";
+      $("f_description").value = prod.description || "";
+      $("f_price").value = prod.price || "";
+      $("f_category").value = prod.category_id || "";
+      $("f_subcategory").value = prod.subcategory_id || "";
+      $("f_collection").value = prod.collection_id || "";
+
+      // load existing images into thumbs
+      const { data: imgs } = await supabaseClient.from("product_images").select("id,path").eq("product_id", productId).order("id");
+      (imgs||[]).forEach(img => addStoredThumb(img.id, img.path));
+
+      // load existing variants
+      const { data: variants } = await supabaseClient.from("product_variants").select("*").eq("product_id", productId).order("id");
+      (variants || []).forEach(v => addVariantToList(v)); // add to UI (no staged._file)
+    }
+
+    function closeModal(){ $("productModal").classList.add("hidden"); $("productModal").style.display = "none"; editingProductId = null; thumbs.innerHTML = ""; stagedVariants = []; $("variantsList").innerHTML = ""; }
+
+    function resetForm(){
+      $("f_title").value=""; $("f_slug").value=""; $("f_description").value=""; $("f_price").value=""; $("f_category").value=""; $("f_subcategory").value=""; $("f_collection").value="";
+      thumbs.innerHTML="";
+      stagedVariants = []; $("variantsList").innerHTML = "";
+    }
+
+    // Adds a stored image thumb with delete button (from DB)
+    function addStoredThumb(id, path){
+      const url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodePathForUrl(path)}`;
+      const div = document.createElement("div"); div.className = "relative";
+      div.innerHTML = `
+        <img src="${url}" class="thumb">
+        <div class="absolute top-1 left-1 bg-white/80 text-xs px-1 rounded">ID:${id}</div>
+        <div class="absolute top-1 right-1"><button data-path="${path}" class="delStored bg-white/80 rounded p-1 text-sm">🗑</button></div>
+      `;
+      thumbs.appendChild(div);
+      div.querySelector(".delStored").addEventListener("click", async e=>{
+        if(!confirm("Supprimer cette image ?")) return;
+        const pathToRemove = e.target.dataset.path;
+        try {
+          const res = await fetch(API_BASE + "/delete-file", {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify({ paths: [pathToRemove] })
+          });
+          const json = await res.json();
+          if(json.error) return toast("Erreur suppression: "+json.error,"err");
+          await supabaseClient.from("product_images").delete().eq("path", pathToRemove);
+          toast("Image supprimée");
+          div.remove();
+        } catch(err){ console.error(err); toast("Erreur suppression fichier","err"); }
       });
-
-      html += `</div>`;
-      tabContent.innerHTML = html;
-
-      document.querySelectorAll('.edit-btn').forEach(btn =>
-        btn.addEventListener('click', () => Swal.fire('🛠️', 'Fonction modifier bientôt disponible.', 'info'))
-      );
-
-      document.querySelectorAll('.delete-btn').forEach(btn =>
-        btn.addEventListener('click', () => Swal.fire('⚠️', 'Suppression à venir.', 'warning'))
-      );
     }
 
-    async function loadCategories() {
-      const { data } = await supabaseClient.from('categories').select('*');
-      tabContent.innerHTML = data?.length
-        ? data.map(c => `<p>📂 ${c.name}</p>`).join('')
-        : `<p>Aucune catégorie pour le moment.</p>`;
+    // ===== Variants management (UI) =====
+    $("addVariantBtn").addEventListener("click", ()=>{
+      const name = $("v_name").value.trim();
+      const price = $("v_price").value.trim();
+      const sku = $("v_sku").value.trim();
+      const stock = $("v_stock").value.trim();
+      const attrs = $("v_attributes").value.trim();
+      if(!name) return toast("Nom variante requis","err");
+      let attributes = null;
+      if(attrs) {
+        try { attributes = JSON.parse(attrs); } catch(e){ return toast("Attributs JSON invalide","err"); }
+      }
+      const variant = { id: null, name, price: price?parseInt(price):null, sku: sku||null, stock: stock?parseInt(stock):0, attributes };
+      stagedVariants.push(variant);
+      addVariantToList(variant);
+      // reset variant inputs
+      $("v_name").value=""; $("v_price").value=""; $("v_sku").value=""; $("v_stock").value=""; $("v_attributes").value="";
+    });
+
+    $("clearVariantsBtn").addEventListener("click", ()=>{ if(!confirm("Vider les variantes en cours ?")) return; stagedVariants=[]; $("variantsList").innerHTML=""; });
+
+    function addVariantToList(v){
+      const li = document.createElement("li"); li.className = "flex justify-between items-center p-2 border rounded";
+      const left = document.createElement("div");
+      left.innerHTML = `<div class="font-semibold">${v.name}</div><div class="text-xs text-gray-500">SKU: ${v.sku||'—'} • Prix: ${v.price||'—'} • Stock: ${v.stock||0}</div>`;
+      const right = document.createElement("div");
+      right.innerHTML = `<button class="delVar bg-red-500 text-white px-2 py-1 rounded">Suppr</button>`;
+      li.appendChild(left); li.appendChild(right);
+      $("variantsList").prepend(li);
+      right.querySelector(".delVar").addEventListener("click", async ()=>{
+        if(!confirm("Supprimer cette variante ?")) return;
+        // if variant has id => delete from DB; else remove from staged
+        if(v.id){
+          const { error } = await supabaseClient.from("product_variants").delete().eq("id", v.id);
+          if(error) return toast("Erreur suppression variante: "+error.message,"err");
+          li.remove(); toast("Variante supprimée");
+        } else {
+          // staged variant (not yet saved)
+          stagedVariants = stagedVariants.filter(s => s !== v);
+          li.remove();
+        }
+      });
     }
 
-    async function loadSubCategories() {
-      const { data } = await supabaseClient.from('subcategories').select('*');
-      tabContent.innerHTML = data?.length
-        ? data.map(c => `<p>↳ ${c.name}</p>`).join('')
-        : `<p>Aucune sous-catégorie.</p>`;
+    // ===== Save product (create or update), plus upload image files & save variants =====
+    async function saveProduct(closeAfter=true){
+      const title = $("f_title").value.trim();
+      const slug = $("f_slug").value.trim();
+      const description = $("f_description").value.trim();
+      const price = parseInt($("f_price").value);
+      const category_id = $("f_category").value || null;
+      const subcategory_id = $("f_subcategory").value || null;
+      const collection_id = $("f_collection").value || null;
+
+      if(!title || !slug || Number.isNaN(price)) return toast("Titre, slug et prix requis","err");
+
+      if(!editingProductId){
+        const { data:[prod] = [], error } = await supabaseClient.from("products")
+          .insert([{ title, slug, description, price, published:true, category_id: category_id?parseInt(category_id):null, subcategory_id: subcategory_id?parseInt(subcategory_id):null, collection_id: collection_id?parseInt(collection_id):null }])
+          .select().limit(1);
+        if(error) return toast("Erreur création produit: "+error.message,"err");
+        editingProductId = prod.id;
+        toast("Produit créé");
+      } else {
+        const { error } = await supabaseClient.from("products").update({
+          title, slug, description, price,
+          category_id: category_id?parseInt(category_id):null,
+          subcategory_id: subcategory_id?parseInt(subcategory_id):null,
+          collection_id: collection_id?parseInt(collection_id):null
+        }).eq("id", editingProductId);
+        if(error) return toast("Erreur mise à jour: "+error.message,"err");
+        toast("Produit mis à jour");
+      }
+
+      // 1) upload local thumbs (DOM nodes with ._file) to bucket via client (allowed when bucket is public and anon key permits)
+      const thumbDivs = [...thumbs.querySelectorAll("div")];
+      for(const d of thumbDivs){
+        if(d._file){
+          const file = d._file;
+          const safe = safeFileName(file.name);
+          const filepath = `products/${editingProductId}/${Date.now()}_${safe}`;
+          // Use serverless upload if you prefer server-side control:
+          // here we upload directly via supabase storage (client). If your RLS/config requires server, change to call API_BASE + '/upload'
+          const { error: upErr } = await supabaseClient.storage.from(BUCKET).upload(filepath, file, { upsert: true });
+          if(upErr){ console.error("uploadErr", upErr); toast("Erreur upload: "+upErr.message,"err"); continue; }
+          const { error: insErr } = await supabaseClient.from("product_images").insert([{ product_id: editingProductId, path: filepath }]);
+          if(insErr) console.error("insert record err", insErr);
+        }
+      }
+
+      // 2) Save stagedVariants to DB (if any)
+      for(const v of stagedVariants){
+        // If v.id exists, skip (it is already saved). Else insert
+        if(v.id) continue;
+        const { error } = await supabaseClient.from("product_variants").insert([{
+          product_id: editingProductId,
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          stock: v.stock,
+          attributes: v.attributes
+        }]);
+        if(error) console.error("variant insert err", error);
+      }
+
+      // 3) refresh thumbs from DB for this product
+      const { data: imgs } = await supabaseClient.from("product_images").select("id,path").eq("product_id", editingProductId).order("id");
+      thumbs.innerHTML = "";
+      (imgs||[]).forEach(img => addStoredThumb(img.id, img.path));
+
+      // 4) refresh variants from DB
+      const { data: variants } = await supabaseClient.from("product_variants").select("*").eq("product_id", editingProductId).order("id");
+      stagedVariants = []; $("variantsList").innerHTML = "";
+      (variants||[]).forEach(v => addVariantToList(v));
+
+      if(closeAfter){
+        closeModal(); resetForm(); loadProducts();
+      } else {
+        loadProducts();
+      }
     }
 
-    async function loadCollections() {
-      const { data } = await supabaseClient.from('collections').select('*');
-      tabContent.innerHTML = data?.length
-        ? data.map(c => `<p>🎯 ${c.name}</p>`).join('')
-        : `<p>Aucune collection.</p>`;
+    // ===== Categories / Subcats / Collections CRUD =====
+    $("addCat").addEventListener("click", async ()=>{
+      const name = $("catName").value.trim(); if(!name) return toast("Nom requis","err");
+      const slug = name.toLowerCase().replace(/\s+/g,"-");
+      const { error } = await supabaseClient.from("categories").insert([{ name, slug }]);
+      if(error) return toast("Erreur: "+error.message,"err");
+      toast("Catégorie ajoutée"); $("catName").value=""; loadCategories(); loadProducts();
+    });
+
+    async function loadCategories(){
+      const { data } = await supabaseClient.from("categories").select("*").order("id");
+      $("categoriesList").innerHTML=""; $("categoryFilter").innerHTML="<option value=''>Toutes catégories</option>"; $("catForSub").innerHTML="<option value=''>Choisir</option>";
+      (data||[]).forEach(c => {
+        $("categoryFilter").innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        $("catForSub").innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        const li = document.createElement("li"); li.className="flex justify-between items-center";
+        li.innerHTML = `<span>${c.name}</span><div><button data-id="${c.id}" class="delCat text-red-500">Suppr</button></div>`;
+        $("categoriesList").appendChild(li);
+      });
+      document.querySelectorAll(".delCat").forEach(b=> b.addEventListener("click", async e=>{
+        const id = e.target.dataset.id;
+        if(!confirm("Supprimer catégorie ?")) return;
+        const { error } = await supabaseClient.from("categories").delete().eq("id", id);
+        if(error) return toast("Erreur: "+error.message,"err");
+        toast("Catégorie supprimée"); loadCategories(); loadProducts();
+      }));
     }
 
-    checkAuth();
+    $("addSub").addEventListener("click", async ()=> {
+      const name = $("subName").value.trim(); const catId = $("catForSub").value;
+      if(!name || !catId) return toast("Nom & catégorie requis","err");
+      const slug = name.toLowerCase().replace(/\s+/g,"-");
+      const { error } = await supabaseClient.from("subcategories").insert([{ name, slug, category_id: parseInt(catId) }]);
+      if(error) return toast("Erreur: "+error.message,"err");
+      toast("Sous-catégorie ajoutée"); $("subName").value=""; loadSubcats(); loadProducts();
+    });
+
+    async function loadSubcats(){
+      const { data } = await supabaseClient.from("subcategories").select("subcategories.*, categories.name as category_name").leftJoin("categories","subcategories.category_id","categories.id").order("id");
+      $("subcatsList").innerHTML="";
+      (data||[]).forEach(s=>{
+        const li = document.createElement("li"); li.className="flex justify-between items-center";
+        li.innerHTML = `<div>${s.name} <span class="text-xs text-gray-500">(${s.category_name||'—'})</span></div><div><button data-id="${s.id}" class="delSub text-red-500">Suppr</button></div>`;
+        $("subcatsList").appendChild(li);
+      });
+      document.querySelectorAll(".delSub").forEach(b=> b.addEventListener("click", async e=>{
+        if(!confirm("Supprimer sous-catégorie ?")) return;
+        const { error } = await supabaseClient.from("subcategories").delete().eq("id", e.target.dataset.id);
+        if(error) return toast("Erreur: "+error.message,"err");
+        toast("Supprimé"); loadSubcats(); loadProducts();
+      }));
+    }
+
+    $("addCol").addEventListener("click", async ()=> {
+      const name = $("colName").value.trim(); if(!name) return toast("Nom requis","err");
+      const slug = name.toLowerCase().replace(/\s+/g,"-");
+      const { error } = await supabaseClient.from("collections").insert([{ name, slug }]);
+      if(error) return toast("Err: "+error.message,"err");
+      toast("Collection ajoutée"); $("colName").value=""; loadCollections(); loadProducts();
+    });
+
+    async function loadCollections(){
+      const { data } = await supabaseClient.from("collections").select("*").order("id");
+      $("colsList").innerHTML="";
+      (data||[]).forEach(c=>{
+        const li = document.createElement("li"); li.className="flex justify-between items-center";
+        li.innerHTML = `<span>${c.name}</span><div><button data-id="${c.id}" class="delCol text-red-500">Suppr</button></div>`;
+        $("colsList").appendChild(li);
+      });
+      document.querySelectorAll(".delCol").forEach(b=> b.addEventListener("click", async e=>{
+        if(!confirm("Supprimer collection ?")) return;
+        const { error } = await supabaseClient.from("collections").delete().eq("id", e.target.dataset.id);
+        if(error) return toast("Erreur: "+error.message,"err");
+        loadCollections(); loadProducts();
+      }));
+    }
+
+    // ===== UI Panels switching =====
+    function showPanel(name){
+      $("panel-products").classList.toggle("hidden", name !== "products");
+      $("panel-categories").classList.toggle("hidden", name !== "categories");
+      $("panel-subcats").classList.toggle("hidden", name !== "subcats");
+      $("panel-collections").classList.toggle("hidden", name !== "collections");
+      $("pageTitle").innerText = name === "products" ? "Produits" : name === "categories" ? "Catégories" : name === "subcats" ? "Sous-catégories" : "Collections";
+    }
+
+    // ===== Utility: encode path for URL (already defined above) =====
+    function encodePathForUrl(path){ return path.split("/").map(encodeURIComponent).join("/"); }
+
+    // initial load helpers
+    async function loadCategoriesForFilter(){
+      const { data } = await supabaseClient.from("categories").select("*").order("id");
+      $("categoryFilter").innerHTML = `<option value="">Toutes catégories</option>`;
+      (data||[]).forEach(c => $("categoryFilter").innerHTML += `<option value="${c.id}">${c.name}</option>`);
+    }
+
+    // call loadCategoriesForFilter regularly after categories changes
+    async function loadCategories(){
+      await loadCategoriesForFilter();
+      // refill modal selects if modal open
+      if(!$("productModal").classList.contains("hidden")){
+        const cats = (await supabaseClient.from("categories").select("*").order("id")).data||[];
+        $("f_category").innerHTML = "<option value=''>Aucune</option>"; cats.forEach(c=> $("f_category").innerHTML += `<option value="${c.id}">${c.name}</option>`);
+      }
+    }
+
+    // ===== Final small boot: ensure categories loaded for filters =====
+    loadCategoriesForFilter();
+
+    // expose some functions for debugging (optional)
+    window._admin = { loadProducts, loadCategories, loadCollections, loadSubcats };
+
+  })();
   </script>
 </body>
 </html>
+
 
 
 

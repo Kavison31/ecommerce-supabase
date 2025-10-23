@@ -1,4 +1,79 @@
+# ==============================
+# IGNORER LES FICHIERS LOCAUX
+# ==============================
+
 node_modules/
 *.log
 .DS_Store
 .env
+.env.local
+.env.development
+.env.production
+
+# ==============================
+# FICHIERS TEMPORAIRES ET BUILD
+# ==============================
+
+# caches
+.cache/
+dist/
+out/
+build/
+tmp/
+temp/
+
+# Next.js / Vercel cache
+.next/
+.vercel/cache/
+
+# ==============================
+# TESTS ET DOCS LOCAUX
+# ==============================
+
+__tests__/
+coverage/
+docs/
+README.md
+README.txt
+
+# ==============================
+# ÉLÉMENTS NON REQUIS EN PROD
+# ==============================
+
+# scripts de dev
+scripts/
+dev-notes/
+test.js
+debug.log
+
+# fichiers de config locaux
+*.local.js
+*.local.json
+
+# ==============================
+# IMAGES & ASSETS TEMPORAIRES
+# ==============================
+
+uploads/
+*.tmp
+*.bak
+
+# ==============================
+# SUPABASE / ENV / BACKEND
+# ==============================
+
+# Ignorer fichiers sensibles côté backend
+supabase/.branches/
+supabase/.temp/
+supabase/.studio/
+supabase/.env
+supabase/config.toml
+
+# ==============================
+# ÉVITER D’UPLOADER LES SOURCES API DU SERVICE ROLE
+# ==============================
+
+api/create-bucket.js
+api/delete-file.js
+server.js
+

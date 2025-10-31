@@ -251,6 +251,30 @@
     const API_BASE = "/api";
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // --- Gestion retour OAuth GitHub ---
+(async () => {
+  const hash = window.location.hash;
+  if (hash.includes("access_token=")) {
+    const params = new URLSearchParams(hash.replace("#", ""));
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+
+    if (access_token && refresh_token) {
+      const { data, error } = await supabaseClient.auth.setSession({
+        access_token,
+        refresh_token,
+      });
+      if (!error) {
+        toast("Connexion GitHub réussie !");
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await initAfterAuth();
+      } else {
+        toast("Erreur restauration session OAuth", "err");
+      }
+    }
+  }
+})();
+
 
     // helpers
     const $ = id => document.getElementById(id);

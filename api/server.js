@@ -1,3 +1,4 @@
+
 // api/server.js
 import { createClient } from "@supabase/supabase-js";
 import multer from "multer";
@@ -6,9 +7,26 @@ const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+const BUCKET = "product-images";
+
 // --- Configuration Multer (upload mémoire)
 const storage = multer.memoryStorage();
 const upload = multer({ storage }).array("images");
+
+async function ensureBucketExists() {
+  try {
+    const { data: buckets, error } = await supabase.storage.listBuckets();
+    if (error) throw error;
+    const bucketExists = buckets.some(bucket => bucket.name === BUCKET);
+    if (!bucketExists) {
+      const { error: createError } = await supabase.storage.createBucket(BUCKET, { public: true });
+      if (createError) throw createError;
+    }
+  } catch (err) {
+    console.error("Erreur lors de la vérification/création du bucket :", err.message);
+    throw err;
+  }
+}
 
 export default async function handler(req, res) {
   try {
@@ -74,12 +92,20 @@ export default async function handler(req, res) {
             }
           }
 
+          // Ensure bucket exists before upload
+          try {
+            await ensureBucketExists();
+          } catch (bucketErr) {
+            return res.status(500).json({ error: "Erreur bucket: " + bucketErr.message });
+          }
+
           // Upload images
           if (req.files?.length > 0) {
             for (const file of req.files) {
               const filename = `${prod.id}_${Date.now()}_${file.originalname}`;
               const { error: uploadErr } = await supabase.storage
-                .from("product-images")
+
+                .from(BUCKET)
                 .upload(filename, file.buffer, { upsert: true });
               if (!uploadErr)
                 await supabase.from("product_images").insert([{ product_id: prod.id, path: filename }]);
@@ -125,12 +151,20 @@ export default async function handler(req, res) {
             }
           }
 
+          // Ensure bucket exists before upload
+          try {
+            await ensureBucketExists();
+          } catch (bucketErr) {
+            return res.status(500).json({ error: "Erreur bucket: " + bucketErr.message });
+          }
+
           // Upload images
           if (req.files?.length > 0) {
             for (const file of req.files) {
               const filename = `${id}_${Date.now()}_${file.originalname}`;
               const { error: uploadErr } = await supabase.storage
-                .from("product-images")
+
+                .from(BUCKET)
                 .upload(filename, file.buffer, { upsert: true });
               if (!uploadErr)
                 await supabase.from("product_images").insert([{ product_id: id, path: filename }]);
@@ -227,5 +261,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-
-

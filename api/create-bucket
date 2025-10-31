@@ -1,0 +1,30 @@
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const BUCKET = "product-images";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+export default async function handler(req, res) {
+  try {
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    if (listError) throw listError;
+
+    const bucketExists = buckets.some(bucket => bucket.name === BUCKET);
+    let data, error;
+
+    if (!bucketExists) {
+      ({ data, error } = await supabase.storage.createBucket(BUCKET, { public: true }));
+      if (error) throw error;
+    } else {
+      data = { message: 'Bucket already exists' };
+    }
+
+    res.status(200).json({ ok: true, data });
+  } catch (err) {
+    console.error('Bucket creation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}

@@ -1,146 +1,320 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mon E-commerce Supabase</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop - Produits</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#5A67D8',
+            darkbg: '#121212',
+            darktext: '#E2E8F0'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1f1f1f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background-color: #5a67d8;
+      border-radius: 4px;
+    }
+  </style>
 </head>
-<body>
-  <h1>🛍️ Bienvenue sur mon e-commerce</h1>
-  <div id="session"></div>
-  <div id="products"></div>
+<body class="bg-darkbg text-darktext dark">
+  <!-- Navbar -->
+  <nav class="fixed top-0 w-full bg-darkbg bg-opacity-90 backdrop-blur-md z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+      <a href="#" class="text-2xl font-semibold text-primary">MyShop</a>
+      <div class="hidden md:flex space-x-6">
+        <a href="#" class="hover:text-primary transition">Accueil</a>
+        <a href="#" class="hover:text-primary transition">Nouveautés</a>
+        <a href="#" class="hover:text-primary transition">Catégories</a>
+        <a href="#" class="hover:text-primary transition" id="cart-button">Panier (<span id="cart-count">0</span>)</a>
+      </div>
+      <button id="mobile-menu-button" class="md:hidden focus:outline-none">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden bg-darkbg bg-opacity-95">
+      <a href="#" class="block px-4 py-2 hover:bg-primary hover:text-white transition">Accueil</a>
+      <a href="#" class="block px-4 py-2 hover:bg-primary hover:text-white transition">Nouveautés</a>
+      <a href="#" class="block px-4 py-2 hover:bg-primary hover:text-white transition">Catégories</a>
+      <a href="#" class="block px-4 py-2 hover:bg-primary hover:text-white transition" id="cart-button-mobile">Panier (<span id="cart-count-mobile">0</span>)</a>
+    </div>
+  </nav>
 
-  <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js";
+  <main class="pt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Section Nouveautés / Carrousel -->
+    <section class="mb-12">
+      <h2 class="text-3xl font-semibold mb-6">Nouveautés</h2>
+      <div id="carousel" class="relative overflow-hidden rounded-lg">
+        <div id="carousel-inner" class="flex transition-transform duration-500 ease-in-out"></div>
+        <button id="prev" class="absolute left-2 top-1/2 transform -translate-y-1/2 bg-gray-700 bg-opacity-50 p-2 rounded-full hover:bg-opacity-75 text-white">
+          &#10094;
+        </button>
+        <button id="next" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-700 bg-opacity-50 p-2 rounded-full hover:bg-opacity-75 text-white">
+          &#10095;
+        </button>
+      </div>
+    </section>
 
-    // === 1️⃣ Configuration Supabase ===
-    const SUPABASE_URL = "https://zcfyqmwgzrphiaaqwrde.supabase.co"; // <-- remplace par ton URL
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjZnlxbXdnenJwaGlhYXF3cmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjY3MjYsImV4cCI6MjA3NjIwMjcyNn0.hRB156XewgSGH0P2obiFOE-leIwxJ42a5x7AyMmXXEU"; // <-- remplace par ta clé Anon
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <!-- Grille de produits -->
+    <section>
+      <h2 class="text-3xl font-semibold mb-6">Produits</h2>
+      <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+    </section>
+  </main>
 
-    // === 2️⃣ Gestion session visiteur ===
-    let sessionId = localStorage.getItem("session_id");
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      localStorage.setItem("session_id", sessionId);
+  <!-- Panier Modal/Sidebar -->
+  <div id="cart-sidebar" class="fixed top-0 right-0 h-full w-80 bg-darkbg bg-opacity-95 shadow-lg transform translate-x-full transition-transform duration-300 z-40">
+    <div class="p-4 flex justify-between items-center border-b border-gray-700">
+      <h3 class="text-2xl font-semibold">Votre panier</h3>
+      <button id="close-cart" class="text-gray-400 hover:text-white">&times;</button>
+    </div>
+    <div id="cart-items" class="p-4 overflow-y-auto max-h-[calc(100vh-6rem)]"></div>
+    <div class="p-4 border-t border-gray-700">
+      <div class="flex justify-between font-semibold text-lg">
+        <span>Total:</span>
+        <span id="cart-total">0&nbsp;€</span>
+      </div>
+      <button id="checkout-button" class="mt-4 w-full bg-primary hover:bg-indigo-600 text-white py-3 rounded-lg">Passer commande</button>
+    </div>
+  </div>
+
+  <footer class="mt-16 py-8 bg-darkbg border-t border-gray-700 text-center text-gray-400 text-sm">
+    &copy; 2024 MyShop - Tous droits réservés.
+  </footer>
+
+  <script>
+    const SUPABASE_URL = 'https://zcfyqmwgzrphiaaqwrde.supabase.co';
+
+    // Local state
+    let products = [];
+    let cart = { items: [] };
+
+    // Fetch products and render
+    async function fetchProducts() {
+      const res = await fetch('/api/products');
+      if (!res.ok) return console.error('Erreur chargement produits');
+      products = await res.json();
+      renderProducts(products);
+      renderCarousel(products.slice(0, 5));
     }
-    document.getElementById("session").innerText = `Session visiteur : ${sessionId}`;
 
-    // === 3️⃣ Créer un panier visiteur s’il n’existe pas ===
-    async function ensureCart() {
-      const { data: existing } = await supabase
-        .from("carts")
-        .select("*")
-        .eq("session_id", sessionId)
-        .limit(1);
+    // Render product grid
+    function renderProducts(items) {
+      const grid = document.getElementById('products-grid');
+      grid.innerHTML = '';
+      items.forEach(product => {
+        const imgSrc = product.product_images?.[0]?.path
+          ? `https://zcfyqmwgzrphiaaqwrde.supabase.co/storage/v1/object/public/product-images/${product.product_images[0].path}`
+          : 'https://via.placeholder.com/300x300?text=No+Image';
 
-      if (existing && existing.length > 0) return existing[0];
+        const card = document.createElement('div');
+        card.className = 'bg-gray-900 rounded-lg shadow-md overflow-hidden flex flex-col';
 
-      const { data, error } = await supabase
-        .from("carts")
-        .insert([{ session_id: sessionId }])
-        .select();
+        card.innerHTML = `
+          <img src="${imgSrc}" alt="${product.title}" class="w-full aspect-square object-cover" />
+          <div class="p-4 flex flex-col flex-grow">
+            <h3 class="text-lg font-semibold mb-2">${product.title}</h3>
+            <p class="text-gray-400 flex-grow">${product.description || ''}</p>
+            <div class="mt-4 flex justify-between items-center">
+              <span class="text-primary font-bold text-xl">${product.price} €</span>
+              <button class="bg-primary px-4 py-2 rounded hover:bg-indigo-600 focus:outline-none" onclick="addToCart(${product.id})">Ajouter</button>
+            </div>
+          </div>
+        `;
 
-      if (error) {
-        console.error("Erreur création panier :", error.message);
-        return null;
-      }
-      console.log("✅ Panier créé :", data);
-      return data[0];
-    }
-
-    const cart = await ensureCart();
-
-    // === 4️⃣ Ajouter un produit au panier ===
-    async function addToCart(productId, price) {
-      const { error } = await supabase
-        .from("cart_items")
-        .insert([
-          { cart_id: cart.id, product_id: productId, unit_price: price, quantity: 1 },
-        ]);
-
-      if (error) {
-        alert("❌ Erreur ajout au panier : " + error.message);
-      } else {
-        alert("✅ Produit ajouté au panier !");
-      }
-    }
-
-    // === 5️⃣ Afficher les produits publiés ===
-    async function showProducts() {
-      const { data: products, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("published", true);
-
-      const container = document.getElementById("products");
-
-      if (error) {
-        container.innerHTML = `<p style="color:red;">❌ Erreur produits : ${error.message}</p>`;
-        return;
-      }
-
-      if (!products || products.length === 0) {
-        container.innerHTML = `<p>Aucun produit disponible pour le moment.</p>`;
-        return;
-      }
-
-      container.innerHTML = `<h2>🧺 Produits disponibles</h2>`;
-
-      products.forEach((p) => {
-        const div = document.createElement("div");
-        div.style = "border:1px solid #ccc; padding:10px; margin:10px; border-radius:8px;";
-
-        // --- Images ---
-        const imagesDiv = document.createElement("div");
-        imagesDiv.style = "margin-bottom:8px;";
-        div.appendChild(imagesDiv);
-
-        supabase
-          .from("product_images")
-          .select("*")
-          .eq("product_id", p.id)
-          .then(({ data: imgs, error }) => {
-            if (!error && imgs.length > 0) {
-              imgs.forEach((img) => {
-                const imgEl = document.createElement("img");
-                imgEl.src = `${SUPABASE_URL}/storage/v1/object/public/${img.path}`;
-                imgEl.style = "max-width:150px; margin-right:5px; border-radius:4px;";
-                imagesDiv.appendChild(imgEl);
-              });
-            }
-          });
-
-        // --- Titre ---
-        const title = document.createElement("h3");
-        title.textContent = p.title;
-        div.appendChild(title);
-
-        // --- Description ---
-        const desc = document.createElement("p");
-        desc.textContent = p.description || "";
-        div.appendChild(desc);
-
-        // --- Prix ---
-        const price = document.createElement("p");
-        price.innerHTML = `<strong>${p.price} ${p.currency}</strong>`;
-        div.appendChild(price);
-
-        // --- Bouton ---
-        const btn = document.createElement("button");
-        btn.textContent = "Ajouter au panier";
-        btn.addEventListener("click", async () => {
-          await addToCart(p.id, p.price);
-        });
-        div.appendChild(btn);
-
-        container.appendChild(div);
+        grid.appendChild(card);
       });
     }
 
-    showProducts();
+    // Carousel render
+    let carouselIndex = 0;
+    function renderCarousel(items) {
+      const container = document.getElementById('carousel-inner');
+      container.innerHTML = '';
+
+      items.forEach(p => {
+        const imgSrc = p.product_images?.[0]?.path
+          ? `https://zcfyqmwgzrphiaaqwrde.supabase.co/storage/v1/object/public/product-images/${p.product_images[0].path}`
+          : 'https://via.placeholder.com/600x300?text=No+Image';
+
+        const slide = document.createElement('div');
+        slide.className = 'min-w-full flex-shrink-0';
+        slide.innerHTML = `<img src="${imgSrc}" alt="${p.title}" class="w-full rounded-lg object-cover h-48 sm:h-64 md:h-80" />`;
+        container.appendChild(slide);
+      });
+
+      updateCarouselPosition();
+    }
+
+    function updateCarouselPosition() {
+      const container = document.getElementById('carousel-inner');
+      const width = container.clientWidth;
+      container.style.transform = `translateX(${-carouselIndex * width}px)`;
+    }
+
+    document.getElementById('prev').addEventListener('click', () => {
+      carouselIndex = (carouselIndex - 1 + 5) % 5;
+      updateCarouselPosition();
+    });
+    document.getElementById('next').addEventListener('click', () => {
+      carouselIndex = (carouselIndex + 1) % 5;
+      updateCarouselPosition();
+    });
+
+    // Cart state management (localStorage)
+    function loadCart() {
+      const saved = localStorage.getItem('cart');
+      if (saved) cart = JSON.parse(saved);
+      renderCart();
+      updateCartCount();
+    }
+
+    function saveCart() {
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartCount();
+    }
+
+    function addToCart(productId) {
+      const item = cart.items.find(i => i.product_id === productId);
+      if (item) {
+        item.quantity++;
+      } else {
+        cart.items.push({ product_id: productId, quantity: 1 });
+      }
+      saveCart();
+      renderCart();
+    }
+
+    function updateCartCount() {
+      document.getElementById('cart-count').textContent = cart.items.reduce((a, i) => a + i.quantity, 0);
+      document.getElementById('cart-count-mobile').textContent = cart.items.reduce((a, i) => a + i.quantity, 0);
+    }
+
+    function renderCart() {
+      const list = document.getElementById('cart-items');
+      list.innerHTML = '';
+
+      if (cart.items.length === 0) {
+        list.innerHTML = '<p class="text-gray-400">Votre panier est vide.</p>';
+        document.getElementById('cart-total').textContent = '0 €';
+        return;
+      }
+
+      let total = 0;
+      cart.items.forEach(cartItem => {
+        const product = products.find(p => p.id === cartItem.product_id);
+        if (!product) return;
+
+        const itemEl = document.createElement('div');
+        itemEl.className = 'flex justify-between items-center mb-3';
+
+        itemEl.innerHTML = `
+          <div>
+            <h4 class="font-semibold">${product.title}</h4>
+            <small>${cartItem.quantity} x ${product.price} €</small>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button class="bg-gray-700 rounded px-2" aria-label="Diminuer quantité" onclick="changeQuantity(${product.id}, -1)">-</button>
+            <span>${cartItem.quantity}</span>
+            <button class="bg-gray-700 rounded px-2" aria-label="Augmenter quantité" onclick="changeQuantity(${product.id}, 1)">+</button>
+            <button class="text-red-500 font-bold px-2" aria-label="Supprimer" onclick="removeFromCart(${product.id})">×</button>
+          </div>
+        `;
+
+        list.appendChild(itemEl);
+        total += product.price * cartItem.quantity;
+      });
+
+      document.getElementById('cart-total').textContent = total + ' €';
+    }
+
+    function changeQuantity(productId, delta) {
+      const item = cart.items.find(i => i.product_id === productId);
+      if (!item) return;
+      item.quantity += delta;
+      if (item.quantity <= 0) {
+        cart.items = cart.items.filter(i => i.product_id !== productId);
+      }
+      saveCart();
+      renderCart();
+    }
+
+    function removeFromCart(productId) {
+      cart.items = cart.items.filter(i => i.product_id !== productId);
+      saveCart();
+      renderCart();
+    }
+
+    // Cart sidebar toggle
+    const cartSidebar = document.getElementById('cart-sidebar');
+    document.getElementById('cart-button').addEventListener('click', () => {
+      cartSidebar.classList.remove('translate-x-full');
+    });
+    document.getElementById('cart-button-mobile').addEventListener('click', () => {
+      cartSidebar.classList.remove('translate-x-full');
+    });
+    document.getElementById('close-cart').addEventListener('click', () => {
+      cartSidebar.classList.add('translate-x-full');
+    });
+
+    // Checkout (passer commande)
+    document.getElementById('checkout-button').addEventListener('click', async () => {
+      if (cart.items.length === 0) {
+        alert('Votre panier est vide');
+        return;
+      }
+
+      // Envoyer commande au backend
+      const userId = localStorage.getItem('user_id') || 'guest';
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, items: cart.items }),
+        });
+        if (!res.ok) throw new Error('Erreur lors de la commande');
+
+        alert('Commande passée avec succès!');
+        cart.items = [];
+        saveCart();
+        renderCart();
+        cartSidebar.classList.add('translate-x-full');
+      } catch (err) {
+        alert('Erreur: ' + err.message);
+      }
+    });
+
+    // Mobile menu toggle
+    document.getElementById('mobile-menu-button').addEventListener('click', () => {
+      const menu = document.getElementById('mobile-menu');
+      if (menu.classList.contains('hidden')) {
+        menu.classList.remove('hidden');
+      } else {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // Init
+    fetchProducts();
+    loadCart();
   </script>
 </body>
 </html>
-
-
